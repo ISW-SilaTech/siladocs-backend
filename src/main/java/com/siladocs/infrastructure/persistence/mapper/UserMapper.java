@@ -11,7 +11,7 @@ public class UserMapper {
                 entity.getId(),
                 entity.getName(),
                 entity.getEmail(),
-                entity.getPassword(),
+                entity.getPasswordHash(),
                 entity.getRole(),
                 entity.getInstitutionId(),
                 entity.getCreatedAt()
@@ -21,10 +21,10 @@ public class UserMapper {
     public static UserEntity toEntity(User domain) {
         if (domain == null) return null;
         return new UserEntity(
-                domain.getId(),
+                domain.getUserId(),
                 domain.getName(),
                 domain.getEmail(),
-                domain.getPassword(),
+                domain.getPasswordHash(),
                 domain.getRole(),
                 domain.getInstitutionId(),
                 domain.getCreatedAt()

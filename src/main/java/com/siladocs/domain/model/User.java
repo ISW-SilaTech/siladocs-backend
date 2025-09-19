@@ -14,7 +14,7 @@ public class User {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
+    private Long userId; // Usar camelCase en Java
 
     @Column(nullable = false)
     private String name;
@@ -23,14 +23,23 @@ public class User {
     private String email;
 
     @Column(nullable = false)
-    private String password; // hashed
+    private String passwordHash; // camelCase en Java
 
     @Column(nullable = false)
-    private String role; // por ej: ROLE_ADMIN, ROLE_USER
+    private String role; // por ej: ROLE_ADMIN, ROLE_VIEWER, ROLE_EDITOR
 
-    @Column(name = "institution_id")
-    private Long institutionId;
+    @Column(name = "institution_id", nullable = false)
+    private Long institutionId; // camelCase
 
     @Column(name = "created_at", updatable = false, nullable = false)
     private Instant createdAt = Instant.now();
+
+    // Constructor sin id para creación más limpia
+    public User(String name, String email, String passwordHash, String role, Long institutionId) {
+        this.name = name;
+        this.email = email;
+        this.passwordHash = passwordHash;
+        this.role = role;
+        this.institutionId = institutionId;
+    }
 }

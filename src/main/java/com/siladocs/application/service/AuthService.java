@@ -30,7 +30,7 @@ public class AuthService {
         UserEntity admin = new UserEntity();
         admin.setName(name);
         admin.setEmail(email);
-        admin.setPassword(passwordEncoder.encode(rawPassword));
+        admin.setPasswordHash(passwordEncoder.encode(rawPassword));
         admin.setRole("ROLE_ADMIN");
         admin.setInstitutionId(institutionId);
         userRepo.save(admin);
@@ -41,7 +41,7 @@ public class AuthService {
         UserEntity user = userRepo.findByEmail(email)
                 .orElseThrow(() -> new RuntimeException("Usuario no encontrado"));
 
-        if (!passwordEncoder.matches(rawPassword, user.getPassword())) {
+        if (!passwordEncoder.matches(rawPassword, user.getPasswordHash())) {
             throw new RuntimeException("Contraseña incorrecta");
         }
 
@@ -57,7 +57,7 @@ public class AuthService {
         UserEntity admin = new UserEntity();
         admin.setName(name);
         admin.setEmail(email);
-        admin.setPassword(passwordEncoder.encode(rawPassword));
+        admin.setPasswordHash(passwordEncoder.encode(rawPassword));
         admin.setRole("ROLE_ADMIN");
         userRepo.save(admin);
     }

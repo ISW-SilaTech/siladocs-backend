@@ -7,6 +7,7 @@ import org.springframework.security.config.annotation.web.configurers.AbstractHt
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
@@ -16,6 +17,12 @@ import java.util.List;
 @Configuration
 public class SecurityConfig {
 
+    private final JwtAuthenticationFilter jwtFilter;
+
+    public SecurityConfig(JwtAuthenticationFilter jwtFilter) {
+        this.jwtFilter = jwtFilter;
+    }
+
     @Bean
     public PasswordEncoder passwordEncoder() {
         return new BCryptPasswordEncoder();
@@ -24,23 +31,31 @@ public class SecurityConfig {
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         http
-                .cors(httpSecurityCorsConfigurer -> httpSecurityCorsConfigurer.configurationSource(corsConfigurationSource())) // 👈 habilitar CORS aquí
+                // Habilitar CORS
+                .cors(httpSecurityCorsConfigurer -> httpSecurityCorsConfigurer.configurationSource(corsConfigurationSource()))
+                // Desactivar CSRF para APIs
                 .csrf(AbstractHttpConfigurer::disable)
+                // Configuración de endpoints
                 .authorizeHttpRequests(auth -> auth
+                        // Endpoints públicos
                         .requestMatchers(
                                 "/v3/api-docs/**",
                                 "/swagger-ui/**",
                                 "/swagger-ui.html",
                                 "/auth/**"
                         ).permitAll()
+                        // Todo lo demás requiere autenticación
                         .anyRequest().authenticated()
                 )
-                .httpBasic(AbstractHttpConfigurer::disable);
+                // Desactivar HTTP Basic
+                .httpBasic(AbstractHttpConfigurer::disable)
+                // Agregar filtro JWT antes de UsernamePasswordAuthenticationFilter
+                .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class);
 
         return http.build();
     }
 
-    // 🔑 Configuración CORS que Spring Security usará
+    // Configuración CORS que Spring Security usará
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
