@@ -1,0 +1,21 @@
+spring:
+  datasource:
+    url: jdbc:postgresql://postgres:5432/siladocs
+    username: siladocs
+    password: siladocs
+    driver-class-name: org.postgresql.Driver
+
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: true
+
+siladocs:
+  storage:
+    endpoint: http://minio:9000
+    access-key: minioadmin
+    secret-key: minioadmin
+    bucket: siladocs
+  jwt:
+    secret: change_this_secret_for_dev_please_replace
+    expiration-ms: 86400000
