@@ -5,9 +5,10 @@ COPY . .
 RUN mvn clean package -DskipTests
 
 # Etapa 2: Runtime
-FROM eclipse-temurin:17-jdk-jammy
+FROM ghcr.io/adoptium/temurin:17-jdk
 WORKDIR /app
 COPY --from=builder /app/target/siladocs-backend-*.jar siladocs-backend.jar
+EXPOSE 8080
 ENTRYPOINT ["java", "-jar", "siladocs-backend.jar"]
 
 
