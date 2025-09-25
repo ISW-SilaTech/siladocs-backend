@@ -9,7 +9,6 @@ FROM eclipse-temurin:17-jdk-jammy
 WORKDIR /app
 COPY --from=builder /app/target/siladocs-backend-*.jar siladocs-backend.jar
 ENTRYPOINT ["java", "-jar", "siladocs-backend.jar"]
-]
 
 
 # Copiar el JAR compilado de la etapa anterior
