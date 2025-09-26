@@ -31,29 +31,15 @@ public class SecurityConfig {
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         http
-                // Habilitar CORS
-                .cors(httpSecurityCorsConfigurer -> httpSecurityCorsConfigurer.configurationSource(corsConfigurationSource()))
-                // Desactivar CSRF para APIs
-                .csrf(AbstractHttpConfigurer::disable)
-                // Configuración de endpoints
+                .csrf(csrf -> csrf.disable())
                 .authorizeHttpRequests(auth -> auth
-                        // Endpoints públicos
-                        .requestMatchers(
-                                "/v3/api-docs/**",
-                                "/swagger-ui/**",
-                                "/swagger-ui.html",
-                                "/auth/**"
-                        ).permitAll()
-                        // Todo lo demás requiere autenticación
-                        .anyRequest().authenticated()
+                        .anyRequest().permitAll()  // 🔹 TODO público
                 )
-                // Desactivar HTTP Basic
-                .httpBasic(AbstractHttpConfigurer::disable)
-                // Agregar filtro JWT antes de UsernamePasswordAuthenticationFilter
-                .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class);
+                .httpBasic(httpBasic -> httpBasic.disable());
 
         return http.build();
     }
+
 
     // Configuración CORS que Spring Security usará
     @Bean
