@@ -1,8 +1,10 @@
+## Etapa 1: La Cocina de Construcción (Builder 🏗️)
 # Etapa 1: Build con JDK 21
 FROM maven:3.9.4-eclipse-temurin-21 AS builder
 WORKDIR /app
 COPY . .
 RUN mvn clean package -DskipTests -X
+## Etapa 1: Fin
 
 # Etapa 2: Runtime con JDK 21
 FROM eclipse-temurin:21-jdk

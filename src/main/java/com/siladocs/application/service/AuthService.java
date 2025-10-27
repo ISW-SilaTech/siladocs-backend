@@ -1,44 +1,55 @@
 package com.siladocs.application.service;
 
-import com.siladocs.infrastructure.persistence.entity.UserEntity;
-import com.siladocs.infrastructure.persistence.jparepository.UserJpaRepository;
+// ⬇️ Importa la interfaz limpia y el modelo de dominio
+import com.siladocs.domain.model.User;
+import com.siladocs.domain.repository.UserRepository;
+
+// import com.siladocs.infrastructure.persistence.entity.UserEntity; // No necesitamos la entidad aquí
+// import com.siladocs.infrastructure.persistence.jparepository.UserJpaRepository; // No inyectamos esto
 import com.siladocs.security.JwtUtil;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import java.util.Optional; // Necesario para Optional<User>
 
 @Service
 public class AuthService {
 
-    private final UserJpaRepository userRepo;
+    // ⬇️ Cambia el tipo del repositorio
+    private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtUtil jwtUtil;
 
-    public AuthService(UserJpaRepository userRepo,
+    // ⬇️ Ajusta el constructor
+    public AuthService(UserRepository userRepository,
                        PasswordEncoder passwordEncoder,
                        JwtUtil jwtUtil) {
-        this.userRepo = userRepo;
+        this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
         this.jwtUtil = jwtUtil;
     }
 
     @Transactional
     public void registerAdmin(String name, String email, String rawPassword, Long institutionId) {
-        if (userRepo.existsByEmail(email)) {
+        // Usa la interfaz limpia y el modelo de dominio
+        if (userRepository.findByEmail(email).isPresent()) { // findByEmail ahora devuelve Optional<User>
             throw new RuntimeException("El correo ya está registrado");
         }
-        UserEntity admin = new UserEntity();
-        admin.setName(name);
-        admin.setEmail(email);
-        admin.setPasswordHash(passwordEncoder.encode(rawPassword));
-        admin.setRole("ROLE_ADMIN");
-        admin.setInstitutionId(institutionId);
-        userRepo.save(admin);
+        // Usa el constructor del modelo de dominio
+        User admin = new User(
+                name,
+                email,
+                passwordEncoder.encode(rawPassword),
+                "ROLE_ADMIN",
+                institutionId
+        );
+        userRepository.save(admin); // save ahora recibe y devuelve User
     }
 
     // ---------- Login ----------
     public String login(String email, String rawPassword) {
-        UserEntity user = userRepo.findByEmail(email)
+        // Usa la interfaz limpia y el modelo de dominio
+        User user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new RuntimeException("Usuario no encontrado"));
 
         if (!passwordEncoder.matches(rawPassword, user.getPasswordHash())) {
@@ -49,16 +60,20 @@ public class AuthService {
         return jwtUtil.generateToken(user.getEmail());
     }
 
-    // ---------- Registro simple ----------
+    // ---------- Registro simple (sin institutionId) ----------
+    // Ajusta según necesites, este es un ejemplo si tu modelo User lo permite
     public void registerAdmin(String name, String email, String rawPassword) {
-        if (userRepo.existsByEmail(email)) {
+        if (userRepository.findByEmail(email).isPresent()) {
             throw new RuntimeException("El correo ya está registrado");
         }
-        UserEntity admin = new UserEntity();
-        admin.setName(name);
-        admin.setEmail(email);
-        admin.setPasswordHash(passwordEncoder.encode(rawPassword));
-        admin.setRole("ROLE_ADMIN");
-        userRepo.save(admin);
+        // Necesitarías un constructor en User que no pida institutionId o manejarlo
+        User admin = new User(
+                name,
+                email,
+                passwordEncoder.encode(rawPassword),
+                "ROLE_ADMIN",
+                null // O algún valor por defecto si aplica
+        );
+        userRepository.save(admin);
     }
 }

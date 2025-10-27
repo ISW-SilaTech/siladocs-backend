@@ -9,30 +9,32 @@ import java.time.Instant;
 @NoArgsConstructor
 @AllArgsConstructor
 @Entity
-@Table(name = "institutions") // nombre de la tabla en Postgres
+@Table(name = "institutions")
 public class InstitutionEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "institution_id")
-    private Long id; // clave primaria
+    private Long institutionId;
 
     @Column(nullable = false)
     private String name;
 
     @Column(nullable = false, unique = true)
-    private String domain; // dominio único
+    private String domain;
 
     @Column(nullable = false)
-    private String status; // PENDING, ACTIVE, INACTIVE
+    private String status;
 
     @Column(name = "created_at", updatable = false, nullable = false)
     private Instant createdAt = Instant.now();
 
-    // Constructor sin id para persistencia
-    public InstitutionEntity(String name, String domain, String status) {
-        this.name = name;
-        this.domain = domain;
-        this.status = status;
+    /**
+     * Devuelve el ID de la institución.
+     * La anotación @Getter ya crea "getInstitutionId()",
+     * pero este método "getId()" es útil como alias.
+     */
+    public Long getId() {
+        return this.institutionId;
     }
 }

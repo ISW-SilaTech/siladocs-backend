@@ -1,38 +1,26 @@
 package com.siladocs.domain.model;
 
-import jakarta.persistence.*;
-import lombok.*;
+import lombok.AllArgsConstructor; // <-- ¡AÑADIR ESTA LÍNEA!
+import lombok.Getter;
+import lombok.Setter;
 import java.time.Instant;
 
 @Getter
 @Setter
-@NoArgsConstructor
-@AllArgsConstructor
-@Entity
-@Table(name = "institutions") // nombre de la tabla en Postgres
+@AllArgsConstructor // <-- ¡AÑADIR ESTA ANOTACIÓN!
 public class Institution {
 
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    @Column(name = "institution_id")
-    private Long institutionId; // clave primaria
-
-    @Column(nullable = false)
+    private Long institutionId;
     private String name;
+    private String domain;
+    private String status;
+    private Instant createdAt;
 
-    @Column(nullable = false, unique = true)
-    private String domain; // dominio único
-
-    @Column(nullable = false)
-    private String status; // PENDING, ACTIVE, INACTIVE
-
-    @Column(name = "created_at", updatable = false, nullable = false)
-    private Instant createdAt = Instant.now();
-
-    // Constructor sin id para creación de nuevas instituciones
+    // Constructor para crear una nueva (este ya lo tenías)
     public Institution(String name, String domain, String status) {
         this.name = name;
         this.domain = domain;
         this.status = status;
+        this.createdAt = Instant.now();
     }
 }

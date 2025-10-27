@@ -1,6 +1,6 @@
 package com.siladocs.domain.model;
 
-import jakarta.persistence.*;
+// ⬇️ REMOVE JPA imports: jakarta.persistence.*
 import lombok.*;
 import java.time.Instant;
 
@@ -8,30 +8,30 @@ import java.time.Instant;
 @Setter
 @NoArgsConstructor
 @AllArgsConstructor
-@Entity
-@Table(name = "users") // nombre de la tabla en Postgres
+// ⬇️ REMOVE @Entity
+// ⬇️ REMOVE @Table(name = "users")
 public class User {
 
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long userId; // Usar camelCase en Java
+    // ⬇️ REMOVE @Id
+    // ⬇️ REMOVE @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long userId;
 
-    @Column(nullable = false)
+    // ⬇️ REMOVE @Column(...)
     private String name;
 
-    @Column(nullable = false, unique = true)
+    // ⬇️ REMOVE @Column(...)
     private String email;
 
-    @Column(nullable = false)
-    private String passwordHash; // camelCase en Java
+    // ⬇️ REMOVE @Column(...)
+    private String passwordHash;
 
-    @Column(nullable = false)
-    private String role; // por ej: ROLE_ADMIN, ROLE_VIEWER, ROLE_EDITOR
+    // ⬇️ REMOVE @Column(...)
+    private String role;
 
-    @Column(name = "institution_id", nullable = false)
-    private Long institutionId; // camelCase
+    // ⬇️ REMOVE @Column(...)
+    private Long institutionId;
 
-    @Column(name = "created_at", updatable = false, nullable = false)
+    // ⬇️ REMOVE @Column(...)
     private Instant createdAt = Instant.now();
 
     // Constructor sin id para creación más limpia
@@ -41,5 +41,7 @@ public class User {
         this.passwordHash = passwordHash;
         this.role = role;
         this.institutionId = institutionId;
+        // Asignar createdAt aquí también si quieres que se establezca al crear
+        this.createdAt = Instant.now();
     }
 }
