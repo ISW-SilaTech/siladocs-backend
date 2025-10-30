@@ -5,11 +5,11 @@ import com.siladocs.domain.repository.UserRepository;
 import com.siladocs.infrastructure.persistence.entity.UserEntity;
 import com.siladocs.infrastructure.persistence.jparepository.UserJpaRepository;
 import com.siladocs.infrastructure.persistence.mapper.UserMapper;
-import org.springframework.stereotype.Repository; // <-- 1. Importa la anotación
+import org.springframework.stereotype.Repository;
 
 import java.util.Optional;
 
-@Repository // <-- 2. Añade la anotación aquí
+@Repository
 public class UserRepositoryImpl implements UserRepository {
 
     private final UserJpaRepository jpaRepository;
@@ -19,8 +19,6 @@ public class UserRepositoryImpl implements UserRepository {
         this.jpaRepository = jpaRepository;
         this.mapper = mapper;
     }
-
-    // (Asumiendo que tu interfaz UserRepository define 'findByEmail' y 'save')
 
     @Override
     public Optional<User> findByEmail(String email) {
@@ -36,5 +34,14 @@ public class UserRepositoryImpl implements UserRepository {
         UserEntity savedEntity = jpaRepository.save(entity);
         // 3. Devuelve el modelo de dominio
         return mapper.toDomain(savedEntity);
+    }
+
+    // --- 🔹 MÉTODO ACTUALIZADO 🔹 ---
+    @Override
+    public Optional<User> findById(Long userId) {
+        // 1. Busca la entidad JPA por ID
+        Optional<UserEntity> entityOptional = jpaRepository.findById(userId);
+        // 2. Mapea el resultado (si existe) de Entidad a Dominio
+        return entityOptional.map(mapper::toDomain);
     }
 }
