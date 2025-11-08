@@ -1,9 +1,5 @@
 spring:
-  datasource:
-    url: jdbc:postgresql://postgres:5432/siladocs
-    username: siladocs
-    password: siladocs
-
+  # Configuración de JPA (es común a todos los entornos)
   jpa:
     hibernate:
       ddl-auto: update
@@ -11,21 +7,20 @@ spring:
     properties:
       hibernate:
         dialect: org.hibernate.dialect.PostgreSQLDialect
+
+  # Configuración de subida de archivos (común)
   servlet:
     multipart:
       max-file-size: 50MB
       max-request-size: 50MB
 
+# Configuración de JWT (es común)
 siladocs:
-  storage:
-    endpoint: http://minio:9000
-    access-key: minioadmin
-    secret-key: minioadmin
-    bucket: siladocs
   jwt:
     secret: change_this_secret_for_dev_please_replace
     expiration-ms: 86400000
 
+# Configuración de Actuator (es común)
 management:
   endpoints:
     web:

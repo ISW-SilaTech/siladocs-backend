@@ -1,21 +1,40 @@
 spring:
+  # 1. CONEXIÓN A POSTGRES (Específico de Docker)
   datasource:
     url: jdbc:postgresql://postgres:5432/siladocs
     username: siladocs
     password: siladocs
     driver-class-name: org.postgresql.Driver
 
-  jpa:
-    hibernate:
-      ddl-auto: update
-    show-sql: true
+  # 2. CONFIGURACIÓN DE EMAIL (Específico de este entorno)
+  mail:
+    host: smtp.gmail.com
+    port: 587
+    username: alejandro.zarate.personal@gmail.com
+    password: dnrc zaqe siud ixkz
+    properties:
+      mail.smtp:
+        auth: true
+        starttls.enable: true
 
+# 3. CONEXIÓN A MINIO (Específico de Docker)
 siladocs:
   storage:
     endpoint: http://minio:9000
     access-key: minioadmin
     secret-key: minioadmin
     bucket: siladocs
-  jwt:
-    secret: change_this_secret_for_dev_please_replace
-    expiration-ms: 86400000
+
+# 4. CONFIGURACIÓN DE URLS DE FRONTEND (Específico de este entorno)
+app:
+  frontend:
+    reset-url: http://localhost:3000/authentication/reset-password/basic/
+
+# 5. CONFIGURACIÓN BLOCKCHAIN (Específico de Docker)
+blockchain:
+  node:
+    url: http://ganache:8545
+  admin:
+    private-key: 0xdbda1821b80551c9d65a12bab3ea220fde05956e8c7c11a30f7850e00885ff44
+  contract:
+    address: 0x385042b6D980C82D11c0CC16941699eD633317Bf # ⬅️ Usa la dirección que desplegaste

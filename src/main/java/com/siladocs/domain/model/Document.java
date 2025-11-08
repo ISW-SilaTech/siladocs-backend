@@ -1,6 +1,6 @@
 package com.siladocs.domain.model;
 
-import jakarta.persistence.*;
+// 🔹 Imports de JPA eliminados
 import lombok.*;
 import java.time.Instant;
 
@@ -8,31 +8,17 @@ import java.time.Instant;
 @Setter
 @NoArgsConstructor
 @AllArgsConstructor
-@Entity
-@Table(name = "documents") // 👈 nombre de la tabla en Postgres
+// ⬇️ Anotaciones JPA eliminadas
 public class Document {
 
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    @Column(name = "document_id")
-    private Long documentId; // 👈 clave primaria (alineado con institutionId)
-
-    @Column(nullable = false)
+    private Long documentId;
     private String fileName;
-
-    @Column(nullable = false)
-    private String fileType; // extensión o MIME type
-
-    @Column(nullable = false)
-    private Long fileSize; // tamaño en bytes
-
-    @Column(nullable = false, unique = true)
-    private String hash; // hash único para validar integridad
-
-    @Column(name = "uploaded_at", updatable = false, nullable = false)
+    private String fileType;
+    private Long fileSize;
+    private String hash;
     private Instant uploadedAt = Instant.now();
 
-    // Constructor usado en upload (sin id, porque JPA lo genera)
+    // Constructor usado en upload (sin id)
     public Document(String fileName, String fileType, Long fileSize, String hash, Instant uploadedAt) {
         this.fileName = fileName;
         this.fileType = fileType;

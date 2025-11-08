@@ -2,40 +2,46 @@ package com.siladocs.application.service;
 
 import com.siladocs.domain.model.User;
 import com.siladocs.domain.repository.UserRepository;
-import com.siladocs.infrastructure.persistence.entity.PasswordResetToken; // 🔹 Importar (Necesitas crear esta entidad)
-import com.siladocs.infrastructure.persistence.jparepository.PasswordResetTokenRepository; // 🔹 Importar (Necesitas crear este repo)
+import com.siladocs.infrastructure.persistence.entity.PasswordResetToken;
+import com.siladocs.infrastructure.persistence.jparepository.PasswordResetTokenRepository;
 import com.siladocs.security.JwtUtil;
-import org.springframework.beans.factory.annotation.Value; // 🔹 Importar
-import org.springframework.mail.SimpleMailMessage; // 🔹 Importar
-import org.springframework.mail.javamail.JavaMailSender; // 🔹 Importar
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.mail.SimpleMailMessage;
+import org.springframework.mail.javamail.JavaMailSender;
+// 🔹 Importaciones de Spring Security
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.security.core.userdetails.UserDetailsService;
+import org.springframework.security.core.userdetails.UsernameNotFoundException;
+// ---
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.Instant; // 🔹 Importar
-import java.time.temporal.ChronoUnit; // 🔹 Importar
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
+import java.util.Collections; // 🔹 Importar
 import java.util.Optional;
-import java.util.UUID; // 🔹 Importar
+import java.util.UUID;
 
 @Service
-public class AuthService {
+// 🔹 1. Implementa la interfaz UserDetailsService
+public class AuthService implements UserDetailsService {
 
+    // ... (Tus dependencias existentes)
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtUtil jwtUtil;
-
-    // 🔹 ----- NUEVAS DEPENDENCIAS ----- 🔹
     private final PasswordResetTokenRepository tokenRepo;
     private final JavaMailSender mailSender;
-    private final String frontendResetUrl; // URL de tu frontend, ej: http://localhost:3000/reset-password
+    private final String frontendResetUrl;
 
-    // ⬇️ 🔹 CONSTRUCTOR ACTUALIZADO 🔹
     public AuthService(UserRepository userRepository,
                        PasswordEncoder passwordEncoder,
                        JwtUtil jwtUtil,
-                       PasswordResetTokenRepository tokenRepo, // 🔹 Añadido
-                       JavaMailSender mailSender,             // 🔹 Añadido
-                       @Value("${app.frontend.reset-url}") String frontendResetUrl) { // 🔹 Añadido
+                       PasswordResetTokenRepository tokenRepo,
+                       JavaMailSender mailSender,
+                       @Value("${app.frontend.reset-url}") String frontendResetUrl) {
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
         this.jwtUtil = jwtUtil;
@@ -44,10 +50,25 @@ public class AuthService {
         this.frontendResetUrl = frontendResetUrl;
     }
 
-    // ---------------------------------------------
-    // --- MÉTODOS EXISTENTES (Sin cambios) ---
-    // ---------------------------------------------
+    // ... (Tus métodos existentes: registerAdmin, login, changePassword, etc.) ...
 
+    // ⬇️ 🔹 2. MÉTODO loadUserByUsername (NUEVO) 🔹 ⬇️
+    @Override
+    @Transactional(readOnly = true)
+    public UserDetails loadUserByUsername(String email) throws UsernameNotFoundException {
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new UsernameNotFoundException("Usuario no encontrado con email: " + email));
+
+        SimpleGrantedAuthority authority = new SimpleGrantedAuthority(user.getRole());
+
+        return new org.springframework.security.core.userdetails.User(
+                user.getEmail(),
+                user.getPasswordHash(),
+                Collections.singletonList(authority)
+        );
+    }
+
+    // (Aquí van tus otros métodos: registerAdmin, login, requestPasswordReset, etc.)
     @Transactional
     public void registerAdmin(String name, String email, String rawPassword, Long institutionId) {
         if (userRepository.findByEmail(email).isPresent()) {
@@ -62,7 +83,7 @@ public class AuthService {
         );
         userRepository.save(admin);
     }
-
+    // ... (etc.)
     public String login(String email, String rawPassword) {
         User user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new RuntimeException("Usuario no encontrado"));
@@ -87,32 +108,15 @@ public class AuthService {
         userRepository.save(admin);
     }
 
-    // ---------------------------------------------
-    // --- 🔹 NUEVOS MÉTODOS PARA RESETEO 🔹 ---
-    // ---------------------------------------------
-
-    /**
-     * Flujo 1: Usuario solicita restablecimiento.
-     * Genera un token y envía un email.
-     */
     @Transactional
     public void requestPasswordReset(String email) {
-        // 1. Validar que el usuario exista usando el repositorio de dominio
         User user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new RuntimeException("No se encontró usuario con ese email."));
-
-        // 2. Invalidar tokens viejos (usa el ID del modelo de dominio)
         tokenRepo.deleteByUserId(user.getUserId());
-
-        // 3. Crear nuevo token
         String token = UUID.randomUUID().toString();
-        Instant expiryDate = Instant.now().plus(1, ChronoUnit.HOURS); // 1 hora de validez
-
-        // 4. Guardar el token (asumiendo que PasswordResetToken almacena 'Long userId')
+        Instant expiryDate = Instant.now().plus(1, ChronoUnit.HOURS);
         PasswordResetToken resetToken = new PasswordResetToken(token, user.getUserId(), expiryDate);
         tokenRepo.save(resetToken);
-
-        // 5. Construir enlace y enviar email
         String resetLink = frontendResetUrl + "?token=" + token;
         SimpleMailMessage message = new SimpleMailMessage();
         message.setFrom("noreply@siladocs.com");
@@ -122,35 +126,35 @@ public class AuthService {
                 "Para restablecer tu contraseña, haz clic en el siguiente enlace:\n" + resetLink + "\n\n" +
                 "Este enlace expira en 1 hora.\n\n" +
                 "Gracias,\nEl equipo de Siladocs");
-
         mailSender.send(message);
     }
 
-    /**
-     * Flujo 2: Usuario ejecuta el restablecimiento.
-     * Valida el token y actualiza la contraseña.
-     */
     @Transactional
     public void performPasswordReset(String token, String newPassword) {
-        // 1. Validar el token
         PasswordResetToken resetToken = tokenRepo.findByToken(token)
                 .orElseThrow(() -> new RuntimeException("Token inválido o no encontrado."));
-
-        // 2. Validar expiración
         if (resetToken.getExpiryDate().isBefore(Instant.now())) {
-            tokenRepo.delete(resetToken); // Limpiar token expirado
+            tokenRepo.delete(resetToken);
             throw new RuntimeException("El token ha expirado.");
         }
-
-        // 3. Obtener el usuario (del dominio) usando el ID del token
         User user = userRepository.findById(resetToken.getUserId())
                 .orElseThrow(() -> new RuntimeException("Usuario asociado al token no encontrado."));
-
-        // 4. Actualizar contraseña en el modelo de dominio
         user.setPasswordHash(passwordEncoder.encode(newPassword));
         userRepository.save(user);
-
-        // 5. Invalidar el token (¡Importante!)
         tokenRepo.delete(resetToken);
+    }
+
+    @Transactional
+    public void changePassword(String userEmail, String currentPassword, String newPassword) {
+        User user = userRepository.findByEmail(userEmail)
+                .orElseThrow(() -> new RuntimeException("Usuario no encontrado."));
+        if (!passwordEncoder.matches(currentPassword, user.getPasswordHash())) {
+            throw new RuntimeException("La contraseña actual es incorrecta.");
+        }
+        if (newPassword == null || newPassword.isBlank() || newPassword.length() < 6) {
+            throw new RuntimeException("La nueva contraseña debe tener al menos 6 caracteres.");
+        }
+        user.setPasswordHash(passwordEncoder.encode(newPassword));
+        userRepository.save(user);
     }
 }

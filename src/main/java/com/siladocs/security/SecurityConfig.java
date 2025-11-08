@@ -2,8 +2,12 @@ package com.siladocs.security;
 
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.authentication.AuthenticationProvider;
+import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
+import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
+import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
-// 🔹 Importa la política de sesión
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -18,11 +22,11 @@ import java.util.List;
 @Configuration
 public class SecurityConfig {
 
-    private final JwtAuthenticationFilter jwtFilter;
-
-    public SecurityConfig(JwtAuthenticationFilter jwtFilter) {
-        this.jwtFilter = jwtFilter;
-    }
+    // ❌ Eliminamos la inyección por constructor para evitar el ciclo
+    // private final JwtAuthenticationFilter jwtFilter;
+    // public SecurityConfig(JwtAuthenticationFilter jwtFilter) {
+    //     this.jwtFilter = jwtFilter;
+    // }
 
     @Bean
     public PasswordEncoder passwordEncoder() {
@@ -30,49 +34,44 @@ public class SecurityConfig {
     }
 
     @Bean
-    public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
+    public AuthenticationManager authenticationManager(AuthenticationConfiguration config) throws Exception {
+        return config.getAuthenticationManager();
+    }
+
+    // Bean que indica a Spring cómo autenticar usuarios
+    @Bean
+    public AuthenticationProvider authenticationProvider(UserDetailsService userDetailsService, PasswordEncoder passwordEncoder) {
+        DaoAuthenticationProvider authProvider = new DaoAuthenticationProvider();
+        authProvider.setUserDetailsService(userDetailsService);
+        authProvider.setPasswordEncoder(passwordEncoder);
+        return authProvider;
+    }
+
+    // ✅ Inyectamos JwtAuthenticationFilter aquí, NO en el constructor
+    @Bean
+    public SecurityFilterChain filterChain(HttpSecurity http, JwtAuthenticationFilter jwtFilter) throws Exception {
         http
                 .csrf(csrf -> csrf.disable())
-                .cors(cors -> cors.configurationSource(corsConfigurationSource())) // 🔹 Habilita CORS
+                .cors(cors -> cors.configurationSource(corsConfigurationSource()))
+                .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
 
-                // 🔹 1. Establece la política de sesión como STATELESS (sin estado)
-                // Esto es fundamental para que JWT funcione correctamente.
-                .sessionManagement(session -> session
-                        .sessionCreationPolicy(SessionCreationPolicy.STATELESS)
-                )
-
-                // 🔹 2. Configura los permisos de las rutas (endpoints)
                 .authorizeHttpRequests(auth -> auth
-                        // 🌍 Rutas Públicas (no requieren token)
-                        .requestMatchers("/auth/login").permitAll()
-                        .requestMatchers("/auth/register").permitAll()
-                        .requestMatchers("/auth/forgot-password").permitAll()
-                        .requestMatchers("/auth/reset-password").permitAll()
-                        .requestMatchers("/api/contact").permitAll()
-
-                        // 🌍 Rutas para Swagger/OpenAPI (documentación de la API)
-                        .requestMatchers("/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html").permitAll()
-
-                        // 🔒 Todas las demás rutas DEBEN estar autenticadas
-                        .anyRequest().authenticated()
+                        .anyRequest().permitAll() // ⚠️ Luego puedes ajustarlo a rutas privadas/públicas
                 )
 
-                // 🔹 3. Añade tu filtro JWT antes del filtro de autenticación estándar
-                // Esto activa tu lógica de validación de token.
+                // ✅ Aquí agregamos el filtro JWT correctamente
                 .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class)
 
-                // 🔹 4. Deshabilita la autenticación básica (formulario de login de Spring)
                 .httpBasic(httpBasic -> httpBasic.disable());
 
         return http.build();
     }
 
-
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
-        configuration.setAllowedOrigins(List.of("http://localhost:3000")); // frontend
-        configuration.setAllowedMethods(List.of("GET","POST","PUT","DELETE","OPTIONS"));
+        configuration.setAllowedOrigins(List.of("http://localhost:3000"));
+        configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
         configuration.setAllowedHeaders(List.of("*"));
         configuration.setAllowCredentials(true);
 
@@ -80,5 +79,4 @@ public class SecurityConfig {
         source.registerCorsConfiguration("/**", configuration);
         return source;
     }
-
 }

@@ -1,7 +1,9 @@
 package com.siladocs.application.service;
 
-import com.siladocs.domain.model.ContactRequest;
-import com.siladocs.domain.repository.ContactRequestRepository;
+// 🔹 Importa la ENTIDAD, no el modelo de dominio
+import com.siladocs.infrastructure.persistence.entity.ContactRequestEntity;
+// 🔹 Importa el REPOSITORIO JPA
+import com.siladocs.infrastructure.persistence.jparepository.ContactRequestRepository;
 import com.siladocs.infrastructure.web.dto.ContactRequestDto;
 import org.springframework.mail.SimpleMailMessage;
 import org.springframework.mail.MailException;
@@ -11,15 +13,15 @@ import org.springframework.transaction.annotation.Transactional;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-@Service // <-- Marca como bean de servicio
+@Service
 public class ContactService {
 
     private static final Logger log = LoggerFactory.getLogger(ContactService.class);
 
     private final ContactRequestRepository contactRepository;
     private final JavaMailSender mailSender;
+    // 🔹 (Opcional pero recomendado: un Mapper)
 
-    // Inyección de dependencias vía constructor
     public ContactService(ContactRequestRepository contactRepository, JavaMailSender mailSender) {
         this.contactRepository = contactRepository;
         this.mailSender = mailSender;
@@ -28,7 +30,9 @@ public class ContactService {
     @Transactional
     public void processContactRequest(ContactRequestDto dto) {
         String fullName = dto.getFirstName() + " " + dto.getLastName();
-        ContactRequest request = new ContactRequest(
+
+        // 🔹 Crea la ENTIDAD (ContactRequestEntity)
+        ContactRequestEntity request = new ContactRequestEntity(
                 dto.getInstitutionName(),
                 fullName,
                 dto.getEmail(),
@@ -37,15 +41,16 @@ public class ContactService {
         );
 
         try {
-            contactRepository.save(request);
+            contactRepository.save(request); // 🔹 Guarda la Entidad
             log.info("Solicitud de contacto guardada para: {}", dto.getEmail());
         } catch (Exception e) {
-            log.error("Error al guardar la solicitud de contacto para {}: {}", dto.getEmail(), e.getMessage(), e); // Loguea el stack trace
+            log.error("Error al guardar la solicitud de contacto para {}: {}", dto.getEmail(), e.getMessage(), e);
             throw new RuntimeException("Error al guardar en la base de datos", e);
         }
 
+        // ... (El resto de la lógica de envío de email está perfecta) ...
         SimpleMailMessage message = new SimpleMailMessage();
-        message.setFrom("noreply@siladocs.com"); // Reemplaza si es necesario
+        message.setFrom("noreply@siladocs.com");
         message.setTo("u20181h198@upc.edu.pe");
         message.setSubject("Nueva Solicitud de Contacto Siladocs: " + dto.getInstitutionName());
         String text = String.format(
@@ -60,8 +65,7 @@ public class ContactService {
             mailSender.send(message);
             log.info("Email de notificación enviado para {}", dto.getEmail());
         } catch (MailException e) {
-            log.error("Error al enviar email de notificación para {}: {}", dto.getEmail(), e.getMessage(), e); // Loguea el stack trace
-            // Considera si fallar o no aquí. Por ahora, solo loguea.
+            log.error("Error al enviar email de notificación para {}: {}", dto.getEmail(), e.getMessage(), e);
         }
     }
 }

@@ -1,0 +1,16 @@
+# Ignorar el directorio de compilación de Maven
+target/
+
+# Ignorar el directorio de Git
+.git/
+
+# Ignorar archivos y carpetas de IDEs
+.idea/
+.vscode/
+
+# Ignorar cualquier carpeta de node_modules (si la tienes)
+node_modules/
+
+# Ignorar archivos de log y de sistema
+*.log
+.DS_Store

@@ -32,6 +32,16 @@ services:
     volumes:
       - minio-data:/data
 
+  ganache:
+    image: trufflesuite/ganache:latest
+    container_name: ganache-node
+    ports:
+      - "8545:8545" # Puerto de la Blockchain
+    # 🔹 CORREGIDO: El comando va en una línea y sin "ganache" al inicio
+    command: --host 0.0.0.0 --networkId 5777 --db "/data" --account="0xdbda1821b80551c9d65a12bab3ea220fde05956e8c7c11a30f7850e00885ff44,10000000000000000000000"
+    volumes:
+      - ganache_data:/data
+
   backend:
     build: .
     ports:
@@ -39,9 +49,11 @@ services:
     depends_on:
       - postgres
       - minio
+      - ganache # 🔹 El backend ahora depende de ganache
     environment:
       - SPRING_PROFILES_ACTIVE=docker
 
 volumes:
   pgdata:
   minio-data:
+  ganache_data: # 🔹 CORREGIDO: Volumen de ganache definido
