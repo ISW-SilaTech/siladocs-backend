@@ -23,6 +23,7 @@ import org.slf4j.LoggerFactory;
 
 import java.math.BigInteger;
 import java.time.Instant; // 🔹 Importar
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
@@ -78,49 +79,87 @@ public class BlockchainService {
         return txHash;
     }
 
+    // ⬇️ 🔹 CORRECCIÓN: MÉTODO DE LECTURA DE LISTA (getSyllabusHistory) 🔹 ⬇️
+    /**
+     * Resuelve el error de compilación del controlador.
+     * Itera usando el método getSyllabusVersionByIndex, que es más estable.
+     */
+    public List<SyllabusHistoryResponse> getSyllabusHistory(Long syllabusId) throws Exception {
+
+        List<SyllabusHistoryResponse> history = new ArrayList<>();
+        int index = 0;
+
+        while (true) {
+            try {
+                // Llama al método de lectura de un solo elemento (más robusto)
+                SyllabusHistoryResponse version = getSyllabusVersionByIndex(syllabusId, index);
+
+                // Si la versión es 0, significa que el registro no existe (condición de parada)
+                if (version.version() == 0) {
+                    break;
+                }
+
+                history.add(version);
+                index++;
+            } catch (Exception e) {
+                // Si ocurre un error de decodificación o índice fuera de límites, asumimos el fin del array
+                // No logueamos el error aquí, lo hacemos en el controlador si es necesario.
+                break;
+            }
+        }
+        // Devolvemos el historial del más reciente al más antiguo
+        Collections.reverse(history);
+        return history;
+    }
+
     // ⬇️ 🔹 ----- NUEVO MÉTODO DE LECTURA ----- 🔹 ⬇️
 
     /**
      * Llama al Smart Contract "getHistory" para leer la trazabilidad (LECTURA).
      */
-    public List<SyllabusHistoryResponse> getSyllabusHistory(Long syllabusId) throws Exception {
+    public SyllabusHistoryResponse getSyllabusVersionByIndex(Long syllabusId, int index) throws Exception {
 
-        // 1. Define la función "getHistory(uint256)" de tu contrato
         final Function function = new Function(
-                "getHistory",
-                Arrays.asList(new Uint256(syllabusId)), // Parámetro de entrada
-                Arrays.asList(new TypeReference<DynamicArray<Version>>() {}) // Tipo de dato de salida
+                "syllabusHistory", // Este es el nombre del getter automático del mapping
+                Arrays.asList(
+                        new org.web3j.abi.datatypes.Uint(BigInteger.valueOf(syllabusId)),
+                        new org.web3j.abi.datatypes.Uint(BigInteger.valueOf(index))
+                ),
+                Arrays.asList(
+                        new TypeReference<Uint256>() {},
+                        new TypeReference<Utf8String>() {},
+                        new TypeReference<Uint256>() {},
+                        new TypeReference<Utf8String>() {},
+                        new TypeReference<Utf8String>() {}
+                )
         );
 
-        // 2. Codifica la llamada
         String encodedFunction = FunctionEncoder.encode(function);
 
-        // 3. Crea la llamada de solo lectura (eth_call)
-        Transaction ethCallTransaction = Transaction.createEthCallTransaction(
-                null, // 'from' no es necesario para una lectura
-                contractAddress, // A dónde llamas
-                encodedFunction
-        );
-
-        // 4. Ejecuta la llamada
-        EthCall response = web3j.ethCall(ethCallTransaction, DefaultBlockParameterName.LATEST).send();
+        // Ejecutar eth_call
+        EthCall response = web3j.ethCall(Transaction.createEthCallTransaction(
+                null, contractAddress, encodedFunction
+        ), DefaultBlockParameterName.LATEST).send();
 
         if (response.hasError()) {
-            throw new RuntimeException("Error al leer de la blockchain: " + response.getError().getMessage());
+            throw new RuntimeException("Error al leer versión de blockchain: " + response.getError().getMessage());
         }
 
-        // 5. Decodifica la respuesta
-        List<Type> result = FunctionReturnDecoder.decode(response.getValue(), function.getOutputParameters());
+        // Decodificar la respuesta
+        List<Type> decodedResult = FunctionReturnDecoder.decode(response.getValue(), function.getOutputParameters());
 
-        if (result.isEmpty() || result.get(0).getValue() == null) {
-            return Collections.emptyList();
+        // Convertir el resultado a DTO
+        if (decodedResult.size() < 5) {
+            throw new RuntimeException("Datos incompletos de la blockchain.");
         }
 
-        // 6. Convierte la respuesta en tu DTO
-        DynamicArray<Version> resultArray = (DynamicArray<Version>) result.get(0);
-        return resultArray.getValue().stream()
-                .map(this::convertVersionToDto)
-                .collect(Collectors.toList());
+        return new SyllabusHistoryResponse(
+                ((Uint256) decodedResult.get(0)).getValue().longValueExact(), // Version
+                ((Utf8String) decodedResult.get(1)).getValue(), // dataHash
+                Instant.ofEpochSecond(((Uint256) decodedResult.get(2)).getValue().longValueExact()), // timestamp
+                ((Utf8String) decodedResult.get(3)).getValue(), // actorEmail
+                ((Utf8String) decodedResult.get(4)).getValue()  // action
+        );
     }
 
     // --- Helper para convertir el struct 'Version' a tu DTO ---
@@ -133,7 +172,6 @@ public class BlockchainService {
                 v.action
         );
     }
-
     // --- Clase interna que mapea el 'struct Version' de Solidity ---
     public static class Version extends DynamicStruct {
         public BigInteger version;
