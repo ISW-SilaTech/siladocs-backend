@@ -1,7 +1,8 @@
-package com.siladocs.infrastructure.web; // O com.siladocs.application.controller
+package com.siladocs.infrastructure.web;
 
+import com.siladocs.application.dto.SyllabusHistoryResponse;
+import com.siladocs.application.service.BlockchainService;
 import com.siladocs.application.service.SyllabusService;
-import com.siladocs.infrastructure.persistence.entity.SyllabusHistoryLogEntity; // O un DTO
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
@@ -16,30 +17,33 @@ import java.util.Map;
 public class SyllabusController {
 
     private final SyllabusService syllabusService;
-    // (Aquí también necesitarás tu servicio de Minio/Storage)
+    private final BlockchainService blockchainService;
 
-    public SyllabusController(SyllabusService syllabusService) {
+    public SyllabusController(SyllabusService syllabusService, BlockchainService blockchainService) {
         this.syllabusService = syllabusService;
+        this.blockchainService = blockchainService;
     }
 
-    /**
-     * Endpoint para subir un nuevo sílabo (o versión)
-     */
     @PostMapping("/upload")
-    public ResponseEntity<?> uploadSyllabus(Authentication authentication,
+    public ResponseEntity<?> uploadSyllabus(Authentication authentication, // ⬅️ Dejamos esto para la seguridad
                                             @RequestParam("file") MultipartFile file,
                                             @RequestParam("courseId") Long courseId,
-                                            @RequestParam("action") String action) { // Ej: "CARGA_INICIAL"
+                                            @RequestParam("action") String action) {
         try {
-            String userEmail = authentication.getName();
+            // 🔹 (Opcional) Validar que el usuario esté autenticado
+            // if (authentication == null || !authentication.isAuthenticated()) {
+            //     return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of("error", "No autenticado"));
+            // }
+            // String userEmail = authentication.getName(); // ⬅️ Ya no pasamos esto
 
-            // 1. Subir el archivo a Minio (necesitarás tu servicio de storage aquí)
-            // String fileUrl = storageService.uploadFile(file);
-            String fileUrl = "http://minio:9000/siladocs/" + file.getOriginalFilename(); // Simulación
+            // 1. Simulación de subida a Minio
+            String fileUrl = "http://minio:9000/siladocs/" + file.getOriginalFilename();
             String fileContent = new String(file.getBytes()); // Simulación (para hashing)
 
-            // 2. Llamar al servicio de sílabo (que llama a la blockchain)
-            syllabusService.uploadSyllabus(courseId, userEmail, fileContent, fileUrl, action);
+            // 2. ⬇️ 🔹 --- CORRECCIÓN AQUÍ --- 🔹 ⬇️
+            //    Llamar al servicio sin el 'userEmail'
+            syllabusService.uploadSyllabus(courseId, fileContent, fileUrl, action);
+            // ⬆️ 🔹 --- FIN DE LA CORRECCIÓN --- 🔹 ⬆️
 
             return ResponseEntity.status(HttpStatus.CREATED).body(Map.of("message", "Sílabo registrado exitosamente"));
 
@@ -49,19 +53,12 @@ public class SyllabusController {
         }
     }
 
-    /**
-     * Endpoint para obtener el historial de trazabilidad (la "Blockchain")
-     */
     @GetMapping("/{id}/history")
     public ResponseEntity<?> getSyllabusHistory(@PathVariable Long id) {
         try {
-            // Esto llama al método que lee de la tabla de historial (nuestra blockchain-lite)
-            // o que llama a `blockchainService.getHistory` (si implementamos la lectura de Ganache)
-            // List<SyllabusHistoryLogEntity> history = syllabusService.getSyllabusHistory(id);
-            // return ResponseEntity.ok(history);
-
-            // Placeholder hasta que implementes la lectura
-            return ResponseEntity.ok(Map.of("message", "Historial para sílabo " + id));
+            // Llama al BlockchainService para leer la cadena
+            List<SyllabusHistoryResponse> history = blockchainService.getSyllabusHistory(id);
+            return ResponseEntity.ok(history);
 
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)

@@ -5,8 +5,8 @@ import com.siladocs.domain.repository.UserRepository;
 import com.siladocs.infrastructure.persistence.entity.CourseEntity;
 import com.siladocs.infrastructure.persistence.entity.SyllabusEntity;
 import com.siladocs.infrastructure.persistence.jparepository.CourseJpaRepository;
-import com.siladocs.infrastructure.persistence.jparepository.SyllabusHistoryLogRepository; // 🔹 Importar
-import com.siladocs.infrastructure.persistence.jparepository.SyllabusJpaRepository; // 🔹 Importar
+import com.siladocs.infrastructure.persistence.jparepository.SyllabusHistoryLogRepository;
+import com.siladocs.infrastructure.persistence.jparepository.SyllabusJpaRepository;
 import org.apache.commons.codec.digest.DigestUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -14,7 +14,6 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-
 import java.time.Instant;
 import java.util.List;
 
@@ -27,58 +26,54 @@ public class SyllabusService {
     private final CourseJpaRepository courseRepo;
     private final UserRepository userRepo;
     private final BlockchainService blockchainService;
-    // 🔹(Si tienes la tabla de historial SQL, añade el repo aquí)
-    // private final SyllabusHistoryLogRepository historyRepo;
+    private final SyllabusHistoryLogRepository historyRepo;
 
     public SyllabusService(SyllabusJpaRepository syllabusRepo,
                            CourseJpaRepository courseRepo,
                            UserRepository userRepo,
-                           BlockchainService blockchainService) {
+                           BlockchainService blockchainService,
+                           SyllabusHistoryLogRepository historyRepo) {
         this.syllabusRepo = syllabusRepo;
         this.courseRepo = courseRepo;
         this.userRepo = userRepo;
         this.blockchainService = blockchainService;
+        this.historyRepo = historyRepo;
     }
 
-    /**
-     * Sube un nuevo sílabo (o una nueva versión de uno existente).
-     * Esto reemplaza la lógica de "create" y "update".
-     */
     @Transactional
-    public void uploadSyllabus(Long courseId, String userEmail, String fileContent, String fileUrl, String action) {
+    public void uploadSyllabus(Long courseId, String fileContent, String fileUrl, String action) {
 
+        String userEmail = getAuthenticatedUserEmail();
         CourseEntity course = courseRepo.findById(courseId)
                 .orElseThrow(() -> new RuntimeException("Curso no encontrado"));
 
         String fileHash = DigestUtils.sha256Hex(fileContent);
 
-        // Busca si ya existe un sílabo para este curso
         SyllabusEntity syllabus = syllabusRepo.findFirstByCourse_IdOrderByCurrentVersionDesc(courseId)
-                .orElse(new SyllabusEntity()); // Si no existe, crea uno nuevo
+                .orElse(new SyllabusEntity());
 
-        // Si el hash es el mismo, no hacemos nada (el archivo no cambió)
         if (fileHash.equals(syllabus.getCurrentHash())) {
             log.info("Hash de sílabo sin cambios para el curso {}. No se requiere actualización.", courseId);
             return;
         }
 
-        // --- Hay un cambio, guardamos la nueva versión ---
-
+        // ⬇️ 🔹 --- CORRECCIÓN AQUÍ --- 🔹 ⬇️
         // Si es un sílabo nuevo, inicializa
         if (syllabus.getId() == null) {
             syllabus.setCourse(course);
             syllabus.setCreatedAt(Instant.now());
             syllabus.setCurrentVersion(0); // Se incrementará a 1
+            // 🔹 INICIALIZA EL HASH DE LA CADENA
+            syllabus.setLastChainHash("0000000000000000000000000000000000000000000000000000000000000000");
         }
+        // ⬆️ 🔹 --- FIN DE LA CORRECCIÓN --- 🔹 ⬆️
 
         // 1. Guardar en PostgreSQL
         syllabus.setFileUrl(fileUrl);
         syllabus.setCurrentHash(fileHash);
         syllabus.setCurrentVersion(syllabus.getCurrentVersion() + 1);
-        syllabus.setStatus(action); // Ej: "CARGADO", "APROBADO"
+        syllabus.setStatus(action);
         syllabus.setUpdatedAt(Instant.now());
-        // El 'last_chain_hash' se actualizará por el trigger (si usamos el trigger SQL)
-        // O lo dejamos nulo si solo usamos Ganache.
 
         SyllabusEntity savedSyllabus = syllabusRepo.save(syllabus);
         log.info("Sílabo (versión {}) guardado en SQL para curso ID {}", savedSyllabus.getCurrentVersion(), courseId);
@@ -86,10 +81,10 @@ public class SyllabusService {
         // 2. Registrar en Blockchain
         try {
             String txHash = blockchainService.registerSyllabusVersion(
-                    savedSyllabus.getId(), // ID del sílabo
+                    savedSyllabus.getId(), // ⬅️ ID del SÍLABO
                     fileHash,
                     userEmail,
-                    action // "CARGADO", "MODIFICADO", "APROBADO"
+                    action
             );
             log.info("Sílabo ID {} (v{}) registrado en Blockchain. TxHash: {}",
                     savedSyllabus.getId(), savedSyllabus.getCurrentVersion(), txHash);
@@ -98,5 +93,14 @@ public class SyllabusService {
             log.error("¡FALLO CRÍTICO! No se pudo registrar en Blockchain: {}", e.getMessage(), e);
             throw new RuntimeException("Error al registrar en Blockchain. La subida del sílabo fue revertida.", e);
         }
+    }
+
+    private String getAuthenticatedUserEmail() {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication == null || !authentication.isAuthenticated() || "anonymousUser".equals(authentication.getPrincipal())) {
+            log.warn("No se encontró usuario autenticado. Usando 'system@siladocs.com' para el log de blockchain.");
+            return "system@siladocs.com";
+        }
+        return authentication.getName();
     }
 }

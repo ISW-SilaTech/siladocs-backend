@@ -36,11 +36,11 @@ services:
     image: trufflesuite/ganache:latest
     container_name: ganache-node
     ports:
-      - "8545:8545" # Puerto de la Blockchain
-    # 🔹 CORREGIDO: El comando va en una línea y sin "ganache" al inicio
-    command: --host 0.0.0.0 --networkId 5777 --db "/data" --account="0xdbda1821b80551c9d65a12bab3ea220fde05956e8c7c11a30f7850e00885ff44,10000000000000000000000"
+      - "8545:8545"
+    # ⬇️ 🔹 CORRECCIÓN CLAVE: Añade el flag '--database.dbPath /data' 🔹
+    command: --host 0.0.0.0 --networkId 5777 --database.dbPath "/data" --account="0xdbda1821b80551c9d65a12bab3ea220fde05956e8c7c11a30f7850e00885ff44,10000000000000000000000"
     volumes:
-      - ganache_data:/data
+      - ganache_data:/data # Esto ya estaba bien
 
   backend:
     build: .
