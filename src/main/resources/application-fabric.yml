@@ -1,0 +1,106 @@
+# ============================================================================
+# Perfil: FABRIC (Hyperledger Fabric)
+# Descripción: Configuración para integración con Hyperledger Fabric
+# ============================================================================
+
+spring:
+  # Configuración de BD (Fabric + PostgreSQL)
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: true
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+
+  # Configuración de datasource PostgreSQL
+  datasource:
+    url: jdbc:postgresql://localhost:5432/siladocs
+    username: siladocs
+    password: siladocs
+    driver-class-name: org.postgresql.Driver
+
+  # Configuración de subida de archivos
+  servlet:
+    multipart:
+      max-file-size: 50MB
+      max-request-size: 50MB
+
+  # Configuración de Mail
+  mail:
+    host: localhost
+    port: 1025
+    username: ${MAIL_USERNAME:admin@siladocs.local}
+    password: ${MAIL_PASSWORD:}
+    properties:
+      mail:
+        smtp:
+          auth: false
+          starttls:
+            enable: false
+
+# ============================================================================
+# Configuración de JWT
+# ============================================================================
+siladocs:
+  jwt:
+    secret: ${JWT_SECRET:change_this_secret_for_dev_please_replace}
+    expiration-ms: 86400000  # 24 horas
+
+# ============================================================================
+# Configuración de Blockchain - Hyperledger Fabric
+# ============================================================================
+blockchain:
+  fabric:
+    api:
+      # URL del middleware Python (FastAPI) que se comunica con Hyperledger Fabric
+      # En desarrollo local: http://127.0.0.1:8000
+      # En producción: configurar con variable de entorno
+      url: ${FABRIC_API_URL:http://127.0.0.1:8000}
+
+      # Timeouts para las solicitudes HTTP
+      timeout:
+        # Timeout de conexión (ms)
+        connect: ${FABRIC_CONNECT_TIMEOUT:10000}
+        # Timeout de lectura (ms)
+        read: ${FABRIC_READ_TIMEOUT:30000}
+
+# ============================================================================
+# Configuración de MinIO (Almacenamiento de archivos)
+# ============================================================================
+minio:
+  endpoint: ${MINIO_ENDPOINT:http://127.0.0.1:9005}
+  access-key: ${MINIO_ACCESS_KEY:minioadmin}
+  secret-key: ${MINIO_SECRET_KEY:minioadmin}
+  bucket-name: ${MINIO_BUCKET:syllabi}
+
+# ============================================================================
+# Configuración de Actuator (Health Checks)
+# ============================================================================
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus
+  endpoint:
+    health:
+      show-details: always
+  metrics:
+    export:
+      prometheus:
+        enabled: true
+
+# ============================================================================
+# Configuración de Logging
+# ============================================================================
+logging:
+  level:
+    root: INFO
+    com.siladocs: DEBUG
+    org.springframework.web: DEBUG
+    org.springframework.security: DEBUG
+    org.hibernate.SQL: DEBUG
+    org.hibernate.type.descriptor.sql: TRACE
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss} - %msg%n"
+    file: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n"

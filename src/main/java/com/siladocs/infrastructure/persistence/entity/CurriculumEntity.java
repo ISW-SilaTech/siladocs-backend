@@ -20,7 +20,7 @@ public class CurriculumEntity {
     @Column(nullable = false)
     private String name;
 
-    @Column(nullable = false)
+    @Column(name = "\"year\"", nullable = false)
     private Integer year;
 
     @Column(name = "course_count", nullable = false)

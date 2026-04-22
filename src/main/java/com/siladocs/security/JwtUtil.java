@@ -21,28 +21,41 @@ public class JwtUtil {
         return Keys.hmacShaKeyFor(jwtSecret.getBytes());
     }
 
-    // Generar JWT
-    public String generateToken(String email) {
+    // Generar JWT con claims multi-tenant
+    public String generateToken(String email,
+                                String userId,
+                                String institutionId,
+                                String role) {
+
         Date now = new Date();
         Date expiry = new Date(now.getTime() + jwtExpirationMs);
+
         return Jwts.builder()
                 .setSubject(email)
+                .claim("userId", userId)
+                .claim("institutionId", institutionId)
+                .claim("role", role)
                 .setIssuedAt(now)
                 .setExpiration(expiry)
                 .signWith(getSigningKey(), SignatureAlgorithm.HS256)
                 .compact();
     }
 
-    // Validar JWT y extraer email
-    public String validateAndExtractEmail(String token) {
+    // Validar JWT y extraer claims
+    public Claims validateAndExtractClaims(String token) {
         try {
             Jws<Claims> claims = Jwts.parser()
                     .setSigningKey(getSigningKey())
                     .build()
                     .parseClaimsJws(token);
-            return claims.getBody().getSubject();
+
+            return claims.getBody();
         } catch (JwtException e) {
             throw new RuntimeException("Token inválido");
         }
+    }
+
+    public String extractEmail(String token) {
+        return validateAndExtractClaims(token).getSubject();
     }
 }

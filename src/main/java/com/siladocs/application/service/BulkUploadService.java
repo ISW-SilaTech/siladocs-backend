@@ -135,8 +135,8 @@ public class BulkUploadService {
                 // 9. 🔹 Registrar en Blockchain 🔹
                 try {
                     String dataHash = DigestUtils.sha256Hex(req.toString());
-                    String txHash = blockchainService.registerSyllabusVersion(
-                            newCourse.getId(),
+                    String txHash = blockchainService.registerSyllabusInFabric(
+                            newCourse.getId().toString(),
                             dataHash,
                             userEmail, // ⬅️ Usa el email pasado como parámetro
                             "CURSO_CREADO (MASIVO)"

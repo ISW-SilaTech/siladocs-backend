@@ -27,7 +27,7 @@ services:
       MINIO_ROOT_USER: minioadmin
       MINIO_ROOT_PASSWORD: minioadmin
     ports:
-      - "9000:9000"   # API
+      - "9005:9000"   # API
       - "9001:9001"   # Consola web
     volumes:
       - minio-data:/data

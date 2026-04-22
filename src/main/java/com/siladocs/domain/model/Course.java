@@ -16,7 +16,7 @@ public class Course {
     private String name;       // e.g., Programación I
     private String faculty;    // e.g., Ingeniería (could be derived from Career)
     private Integer syllabusCount; // N° Sílabos
-    private Integer year;      // Año
+    private Integer year;     // Año
     private String status;     // e.g., "Active", "Closed"
     private LocalDate publicationDate; // Publicación
 

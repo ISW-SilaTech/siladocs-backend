@@ -3,6 +3,9 @@ package com.siladocs.application.controller;
 import com.siladocs.application.dto.AuthResponse;
 import com.siladocs.application.dto.LoginRequest;
 import com.siladocs.application.dto.RegisterRequest;
+import com.siladocs.application.dto.ValidateCodeRequest;
+import com.siladocs.application.dto.InstitutionRegisterRequest;
+import com.siladocs.application.service.AccessCodeService;
 import com.siladocs.application.service.AuthService;
 import com.siladocs.domain.repository.UserRepository;
 import com.siladocs.domain.model.User;
@@ -35,30 +38,67 @@ public class AuthController {
     private final UserRepository userRepo;
     // 🔹 1. Inyecta el AuthenticationManager
     private final AuthenticationManager authenticationManager;
+    private final AccessCodeService accessCodeService;
 
     // 🔹 2. Constructor actualizado
-    public AuthController(AuthService authService, UserRepository userRepo, AuthenticationManager authenticationManager) {
+    public AuthController(AuthService authService,
+                          UserRepository userRepo,
+                          AuthenticationManager authenticationManager,
+                          AccessCodeService accessCodeService) {
         this.authService = authService;
         this.userRepo = userRepo;
         this.authenticationManager = authenticationManager;
+        this.accessCodeService = accessCodeService;
+    }
+
+    @PostMapping("/validate-code")
+    @Operation(summary = "Validar código de acceso institucional")
+    public ResponseEntity<?> validateCode(@RequestBody @jakarta.validation.Valid ValidateCodeRequest request) {
+        accessCodeService.validateCode(request.code());
+        return ResponseEntity.ok(Map.of("message", "Código válido"));
     }
 
     @PostMapping("/register")
-    @Operation(summary = "Registrar administrador")
-    public ResponseEntity<String> registerAdmin(@RequestBody RegisterRequest request) {
-        try {
-            if (request.institutionId() != null) {
-                authService.registerAdmin(
-                        request.name(), request.email(), request.password(), request.institutionId()
-                );
-            } else {
-                authService.registerAdmin(request.name(), request.email(), request.password());
-            }
-            return ResponseEntity.ok("Administrador registrado correctamente");
-        } catch (RuntimeException e) {
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                    .body("Error al registrar el administrador: " + e.getMessage());
-        }
+    @Operation(summary = "Registro institucional con código de acceso")
+    public ResponseEntity<AuthResponse> registerInstitution(
+            @RequestBody @jakarta.validation.Valid InstitutionRegisterRequest request) {
+
+        String token = authService.registerInstitution(
+                request.accessCode(),
+                request.fullName(),
+                request.email(),
+                request.password()
+        );
+
+        User user = userRepo.findByEmail(request.email())
+                .orElseThrow(() -> new RuntimeException("Usuario no encontrado"));
+
+        AuthResponse response = new AuthResponse(
+                token,
+                user.getEmail(),
+                user.getRole(),
+                user.getInstitutionId()
+        );
+
+        return ResponseEntity.status(HttpStatus.CREATED).body(response);
+    }
+
+    @GetMapping("/me")
+    @Operation(summary = "Obtener usuario autenticado")
+    public ResponseEntity<?> me(Authentication authentication) {
+
+        String email = authentication.getName();
+
+        User user = userRepo.findByEmail(email)
+                .orElseThrow(() -> new RuntimeException("Usuario no encontrado"));
+
+        return ResponseEntity.ok(Map.of(
+                "userId", user.getUserId(),
+                "email", user.getEmail(),
+                "fullName", user.getName(),
+                "role", user.getRole(),
+                "institutionId", user.getInstitutionId()
+        ));
     }
 
     // ⬇️ 🔹 3. ENDPOINT /login CORREGIDO 🔹 ⬇️

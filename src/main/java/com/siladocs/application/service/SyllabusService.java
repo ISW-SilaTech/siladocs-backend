@@ -1,5 +1,6 @@
 package com.siladocs.application.service;
 
+import com.siladocs.application.exception.BlockchainException;
 import com.siladocs.domain.model.User;
 import com.siladocs.domain.repository.UserRepository;
 import com.siladocs.infrastructure.persistence.entity.CourseEntity;
@@ -7,6 +8,7 @@ import com.siladocs.infrastructure.persistence.entity.SyllabusEntity;
 import com.siladocs.infrastructure.persistence.jparepository.CourseJpaRepository;
 import com.siladocs.infrastructure.persistence.jparepository.SyllabusHistoryLogRepository;
 import com.siladocs.infrastructure.persistence.jparepository.SyllabusJpaRepository;
+import com.siladocs.infrastructure.storage.StorageService;
 import org.apache.commons.codec.digest.DigestUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -14,9 +16,40 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import java.time.Instant;
-import java.util.List;
+import org.springframework.web.multipart.MultipartFile;
 
+import java.io.IOException;
+import java.time.Instant;
+
+/**
+ * Servicio de Sílabos (SyllabusService) - Refactorizado para Hyperledger Fabric.
+ *
+ * ARQUITECTURA (Clean Architecture):
+ * ├── Layer: Application Service (SLL)
+ * ├── Dependencies: BlockchainService, StorageService, Repositories
+ * └── Purpose: Orquestar el flujo de upload de sílabos
+ *
+ * FLUJO ESTRICTO DE UPLOAD (SilaDocs Fabric):
+ * ┌─────────────────────────────────────────────────────┐
+ * │ 1. RECIBIR ENTRADA                                  │
+ * │    - courseId, MultipartFile (archivo físico)       │
+ * ├─────────────────────────────────────────────────────┤
+ * │ 2. CALCULAR SHA-256                                 │
+ * │    - Hash del contenido del archivo                 │
+ * ├─────────────────────────────────────────────────────┤
+ * │ 3. SUBIR A MinIO                                   │
+ * │    - StorageService.uploadFile(...)                │
+ * │    - Obtener URL pública                           │
+ * ├─────────────────────────────────────────────────────┤
+ * │ 4. REGISTRAR EN FABRIC (CRÍTICO) ⛓️                 │
+ * │    - BlockchainService.registerSyllabusInFabric() │
+ * │    - Si falla → excepción (rollback automático)    │
+ * ├─────────────────────────────────────────────────────┤
+ * │ 5. PERSISTIR EN PostgreSQL                         │
+ * │    - Solo si Fabric fue exitoso                    │
+ * │    - @Transactional revierte TODO si falla        │
+ * └─────────────────────────────────────────────────────┘
+ */
 @Service
 public class SyllabusService {
 
@@ -24,83 +57,207 @@ public class SyllabusService {
 
     private final SyllabusJpaRepository syllabusRepo;
     private final CourseJpaRepository courseRepo;
-    private final UserRepository userRepo;
     private final BlockchainService blockchainService;
+    private final StorageService storageService;
     private final SyllabusHistoryLogRepository historyRepo;
+    private final UserRepository userRepo;
 
     public SyllabusService(SyllabusJpaRepository syllabusRepo,
                            CourseJpaRepository courseRepo,
-                           UserRepository userRepo,
                            BlockchainService blockchainService,
-                           SyllabusHistoryLogRepository historyRepo) {
+                           StorageService storageService,
+                           SyllabusHistoryLogRepository historyRepo,
+                           UserRepository userRepo) {
         this.syllabusRepo = syllabusRepo;
         this.courseRepo = courseRepo;
-        this.userRepo = userRepo;
         this.blockchainService = blockchainService;
+        this.storageService = storageService;
         this.historyRepo = historyRepo;
+        this.userRepo = userRepo;
     }
 
+    /**
+     * Sube un sílabo siguiendo el flujo estricto de SilaDocs Fabric.
+     *
+     * @param courseId      ID del curso
+     * @param syllabusFile  Archivo del sílabo (MultipartFile)
+     * @param action        Acción (create, update, etc.)
+     * @throws BlockchainException       Si Fabric falla
+     * @throws RuntimeException          Si hay error en persistencia/storage
+     * @throws IllegalArgumentException  Si parámetros son inválidos
+     */
     @Transactional
-    public void uploadSyllabus(Long courseId, String fileContent, String fileUrl, String action) {
-
+    public void uploadSyllabus(Long courseId, MultipartFile syllabusFile, String action) {
         String userEmail = getAuthenticatedUserEmail();
-        CourseEntity course = courseRepo.findById(courseId)
-                .orElseThrow(() -> new RuntimeException("Curso no encontrado"));
 
-        String fileHash = DigestUtils.sha256Hex(fileContent);
+        log.info("🔄 INICIANDO UPLOAD DE SÍLABO: courseId={}, user={}, action={}, file={}",
+                courseId, userEmail, action, syllabusFile.getOriginalFilename());
 
-        SyllabusEntity syllabus = syllabusRepo.findFirstByCourse_IdOrderByCurrentVersionDesc(courseId)
-                .orElse(new SyllabusEntity());
-
-        if (fileHash.equals(syllabus.getCurrentHash())) {
-            log.info("Hash de sílabo sin cambios para el curso {}. No se requiere actualización.", courseId);
-            return;
-        }
-
-        // ⬇️ 🔹 --- CORRECCIÓN AQUÍ --- 🔹 ⬇️
-        // Si es un sílabo nuevo, inicializa
-        if (syllabus.getId() == null) {
-            syllabus.setCourse(course);
-            syllabus.setCreatedAt(Instant.now());
-            syllabus.setCurrentVersion(0); // Se incrementará a 1
-            // 🔹 INICIALIZA EL HASH DE LA CADENA
-            syllabus.setLastChainHash("0000000000000000000000000000000000000000000000000000000000000000");
-        }
-        // ⬆️ 🔹 --- FIN DE LA CORRECCIÓN --- 🔹 ⬆️
-
-        // 1. Guardar en PostgreSQL
-        syllabus.setFileUrl(fileUrl);
-        syllabus.setCurrentHash(fileHash);
-        syllabus.setCurrentVersion(syllabus.getCurrentVersion() + 1);
-        syllabus.setStatus(action);
-        syllabus.setUpdatedAt(Instant.now());
-
-        SyllabusEntity savedSyllabus = syllabusRepo.save(syllabus);
-        log.info("Sílabo (versión {}) guardado en SQL para curso ID {}", savedSyllabus.getCurrentVersion(), courseId);
-
-        // 2. Registrar en Blockchain
         try {
-            String txHash = blockchainService.registerSyllabusVersion(
-                    savedSyllabus.getId(), // ⬅️ ID del SÍLABO
-                    fileHash,
-                    userEmail,
-                    action
-            );
-            log.info("Sílabo ID {} (v{}) registrado en Blockchain. TxHash: {}",
-                    savedSyllabus.getId(), savedSyllabus.getCurrentVersion(), txHash);
+            // ===== PASO 1: VALIDAR ENTRADA =====
+            validateInput(courseId, syllabusFile);
+            log.debug("✅ Validación de entrada exitosa");
 
+            // ===== PASO 2: VERIFICAR QUE EL CURSO EXISTE =====
+            CourseEntity course = courseRepo.findById(courseId)
+                    .orElseThrow(() -> {
+                        log.error("❌ Curso no encontrado: courseId={}", courseId);
+                        return new IllegalArgumentException("Curso no encontrado");
+                    });
+            log.debug("✅ Curso encontrado: {}", course.getId());
+
+            // ===== PASO 3: LEER CONTENIDO DEL ARCHIVO =====
+            byte[] fileBytes = readFileBytes(syllabusFile);
+            log.debug("✅ Archivo leído: {} bytes", fileBytes.length);
+
+            // ===== PASO 4: CALCULAR SHA-256 =====
+            String fileHash = DigestUtils.sha256Hex(fileBytes);
+            log.info("📝 Hash SHA-256 calculado: {}", fileHash.substring(0, 12) + "...");
+
+            // ===== PASO 5: VERIFICAR CAMBIOS (OPTIMIZACIÓN) =====
+            var existingSyllabus = syllabusRepo.findFirstByCourse_IdOrderByCurrentVersionDesc(courseId);
+            if (existingSyllabus.isPresent() && fileHash.equals(existingSyllabus.get().getCurrentHash())) {
+                log.info("⏭️ OMITIENDO UPLOAD: Hash idéntico (sin cambios reales para courseId={})", courseId);
+                return;
+            }
+            log.debug("✅ Contenido del sílabo ha cambiado o es nuevo");
+
+            // ===== PASO 6: SUBIR A MinIO =====
+            String folderPath = String.format("/syllabi/course-%d/", courseId);
+            String fileUrl = uploadToMinIO(syllabusFile, fileBytes, folderPath);
+            log.info("☁️ Archivo subido a MinIO: {}", fileUrl);
+
+            // ===== PASO 7: CREAR/ACTUALIZAR ENTIDAD EN MEMORIA (SIN PERSISTIR) =====
+            SyllabusEntity syllabus;
+            if (existingSyllabus.isEmpty()) {
+                // Crear nuevo
+                syllabus = new SyllabusEntity();
+                syllabus.setCourse(course);
+                syllabus.setCreatedAt(Instant.now());
+                syllabus.setCurrentVersion(0);
+                syllabus.setLastChainHash("0000000000000000000000000000000000000000000000000000000000000000");
+                log.debug("✅ Creando nuevo sílabo para courseId={}", courseId);
+            } else {
+                // Actualizar existente
+                syllabus = existingSyllabus.get();
+                log.debug("✅ Actualizando sílabo existente: id={}", syllabus.getId());
+            }
+
+            int nextVersion = syllabus.getCurrentVersion() + 1;
+            syllabus.setFileUrl(fileUrl);
+            syllabus.setCurrentHash(fileHash);
+            syllabus.setCurrentVersion(nextVersion);
+            syllabus.setStatus(action);
+            syllabus.setUpdatedAt(Instant.now());
+            log.debug("✅ Entidad preparada: version={}, hash_prefix={}", nextVersion, fileHash.substring(0, 12));
+
+            // ===== PASO 8: REGISTRAR EN FABRIC (CRÍTICO - PUNTO DE NO RETORNO) ⛓️ =====
+            String txId;
+            try {
+                log.info("⛓️ REGISTRANDO EN HYPERLEDGER FABRIC...");
+                txId = blockchainService.registerSyllabusInFabric(
+                        String.valueOf(courseId),
+                        fileHash,
+                        userEmail,
+                        action
+                );
+                log.info("✅ FABRIC EXITOSO: txId={}", txId);
+            } catch (BlockchainException e) {
+                // Si Fabric falla, la transacción se revierte automáticamente
+                log.error("❌ FALLO CRÍTICO EN FABRIC: {}. La transacción será revertida.", e.getMessage());
+                throw new BlockchainException(
+                        "Blockchain registró error: " + e.getMessage() + 
+                        ". Upload revertido (MinIO podría mantener copia huérfana).",
+                        e
+                );
+            }
+
+            // ===== PASO 9: PERSISTIR EN PostgreSQL (SOLO SI FABRIC EXITOSO) =====
+            try {
+                SyllabusEntity saved = syllabusRepo.save(syllabus);
+                log.info("✅ SÍLABO GUARDADO EN PostgreSQL: syllabusId={}, version={}, txId={}",
+                        saved.getId(), saved.getCurrentVersion(), txId);
+            } catch (Exception e) {
+                log.error("❌ Error al guardar en PostgreSQL (Fabric ya registró): {}", e.getMessage());
+                // Nota: El archivo en MinIO ya existe. Considera job de limpieza
+                throw new RuntimeException(
+                        "Error al guardar en BD (Fabric ya registrado): " + e.getMessage(),
+                        e
+                );
+            }
+
+            log.info("🎉 UPLOAD COMPLETO: courseId={}, version={}, hash_prefix={}",
+                    courseId, nextVersion, fileHash.substring(0, 12));
+
+        } catch (BlockchainException e) {
+            // Re-lanzar excepciones de blockchain
+            throw e;
+        } catch (IllegalArgumentException e) {
+            // Re-lanzar validaciones
+            throw e;
         } catch (Exception e) {
-            log.error("¡FALLO CRÍTICO! No se pudo registrar en Blockchain: {}", e.getMessage(), e);
-            throw new RuntimeException("Error al registrar en Blockchain. La subida del sílabo fue revertida.", e);
+            log.error("❌ ERROR INESPERADO: {}", e.getMessage(), e);
+            throw new RuntimeException("Error inesperado al subir sílabo: " + e.getMessage(), e);
         }
     }
 
+    /**
+     * Valida los parámetros de entrada.
+     */
+    private void validateInput(Long courseId, MultipartFile file) {
+        if (courseId == null || courseId <= 0) {
+            throw new IllegalArgumentException("courseId debe ser un número positivo");
+        }
+        if (file == null || file.isEmpty()) {
+            throw new IllegalArgumentException("Archivo vacío o nulo");
+        }
+        if (file.getOriginalFilename() == null || file.getOriginalFilename().isBlank()) {
+            throw new IllegalArgumentException("Nombre de archivo vacío");
+        }
+        long maxSize = 50 * 1024 * 1024; // 50 MB
+        if (file.getSize() > maxSize) {
+            throw new IllegalArgumentException("Archivo demasiado grande (máx 50 MB)");
+        }
+    }
+
+    /**
+     * Lee los bytes del archivo MultipartFile.
+     */
+    private byte[] readFileBytes(MultipartFile file) {
+        try {
+            return file.getBytes();
+        } catch (IOException e) {
+            log.error("Error al leer bytes del archivo: {}", e.getMessage());
+            throw new RuntimeException("Error al leer archivo: " + e.getMessage(), e);
+        }
+    }
+
+    /**
+     * Sube el archivo a MinIO y retorna la URL pública.
+     */
+    private String uploadToMinIO(MultipartFile file, byte[] fileBytes, String folderPath) {
+        try {
+            return storageService.uploadBytes(
+                    fileBytes,
+                    file.getOriginalFilename(),
+                    folderPath,
+                    file.getContentType()
+            );
+        } catch (Exception e) {
+            log.error("Error al subir a MinIO: {}", e.getMessage());
+            throw new RuntimeException("Error al subir a MinIO: " + e.getMessage(), e);
+        }
+    }
+
+    /**
+     * Obtiene el email del usuario autenticado.
+     */
     private String getAuthenticatedUserEmail() {
-        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        if (authentication == null || !authentication.isAuthenticated() || "anonymousUser".equals(authentication.getPrincipal())) {
-            log.warn("No se encontró usuario autenticado. Usando 'system@siladocs.com' para el log de blockchain.");
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        if (auth == null || !auth.isAuthenticated() || "anonymousUser".equals(auth.getPrincipal())) {
+            log.warn("⚠️ Usuario no autenticado. Usando 'system@siladocs.com'");
             return "system@siladocs.com";
         }
-        return authentication.getName();
+        return auth.getName();
     }
 }

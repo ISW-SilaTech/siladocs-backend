@@ -1,0 +1,471 @@
+{
+  "info": {
+    "_postman_id": "siladocs-fabric-collection",
+    "name": "SilaDocs Fabric - API Testing",
+    "description": "Colección de tests para SilaDocs Backend con Hyperledger Fabric",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:8080",
+      "type": "string"
+    },
+    {
+      "key": "fabric_url",
+      "value": "http://127.0.0.1:8000",
+      "type": "string"
+    },
+    {
+      "key": "token",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "course_id",
+      "value": "1",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "1. HEALTH CHECKS",
+      "item": [
+        {
+          "name": "1.1 - General Health",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/health",
+              "host": ["{{base_url}}"],
+              "path": ["health"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "1.2 - Fabric Health",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/health/fabric",
+              "host": ["{{base_url}}"],
+              "path": ["health", "fabric"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "1.3 - Fabric Health (Detailed)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/health/fabric/detail",
+              "host": ["{{base_url}}"],
+              "path": ["health", "fabric", "detail"]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "2. AUTHENTICATION",
+      "item": [
+        {
+          "name": "2.1 - Register (New User)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Admin User\",\n  \"email\": \"admin@siladocs.com\",\n  \"password\": \"password123\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/auth/register",
+              "host": ["{{base_url}}"],
+              "path": ["auth", "register"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "2.2 - Login",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.environment.set('token', jsonData.token);",
+                  "    console.log('✅ Token guardado: ' + jsonData.token.substring(0, 20) + '...');",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"admin@siladocs.com\",\n  \"password\": \"password123\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/auth/login",
+              "host": ["{{base_url}}"],
+              "path": ["auth", "login"]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "3. DOCUMENTS",
+      "item": [
+        {
+          "name": "3.1 - Upload Document",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "file",
+                  "type": "file",
+                  "src": "/tmp/test-syllabus.pdf"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/api/documents/upload",
+              "host": ["{{base_url}}"],
+              "path": ["api", "documents", "upload"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "3.2 - List Documents",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/documents",
+              "host": ["{{base_url}}"],
+              "path": ["api", "documents"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "3.3 - Get Document (ID=1)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/documents/1",
+              "host": ["{{base_url}}"],
+              "path": ["api", "documents", "1"]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "4. SYLLABUS (FABRIC INTEGRATION) 🔑",
+      "item": [
+        {
+          "name": "4.1 - Upload Syllabus (CREATE)",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "exec": [
+                  "// Verificar que Fabric está activo",
+                  "const fabricUrl = pm.variables.get('fabric_url');",
+                  "pm.sendRequest(fabricUrl + '/health', function(err, response) {",
+                  "    if (err || !response.ok) {",
+                  "        console.warn('⚠️ Fabric API no está disponible en: ' + fabricUrl);",
+                  "    } else {",
+                  "        console.log('✅ Fabric API disponible');",
+                  "    }",
+                  "});"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "    var jsonData = pm.response.json();",
+                  "    console.log('✅ Sílabo registrado exitosamente');",
+                  "    console.log('   - ID: ' + jsonData.syllabusId);",
+                  "    console.log('   - Version: ' + jsonData.version);",
+                  "    console.log('   - Fabric TX: ' + jsonData.fabricTxId);",
+                  "    pm.test('Response 201 Created', function() {",
+                  "        pm.response.to.have.status(201);",
+                  "    });",
+                  "    pm.test('Has fabricTxId', function() {",
+                  "        pm.expect(jsonData.fabricTxId).to.not.be.empty;",
+                  "    });",
+                  "} else {",
+                  "    console.error('❌ Error: ' + pm.response.status);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "courseId",
+                  "value": "{{course_id}}",
+                  "type": "text"
+                },
+                {
+                  "key": "action",
+                  "value": "create",
+                  "type": "text"
+                },
+                {
+                  "key": "file",
+                  "type": "file",
+                  "src": "/tmp/test-syllabus.pdf"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/api/syllabi/upload",
+              "host": ["{{base_url}}"],
+              "path": ["api", "syllabi", "upload"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "4.2 - Upload Syllabus (UPDATE)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "    var jsonData = pm.response.json();",
+                  "    console.log('✅ Sílabo actualizado en Fabric');",
+                  "    console.log('   - Version: ' + jsonData.version);",
+                  "    console.log('   - Fabric TX: ' + jsonData.fabricTxId);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "courseId",
+                  "value": "{{course_id}}",
+                  "type": "text"
+                },
+                {
+                  "key": "action",
+                  "value": "update",
+                  "type": "text"
+                },
+                {
+                  "key": "file",
+                  "type": "file",
+                  "src": "/tmp/test-syllabus-updated.pdf"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/api/syllabi/upload",
+              "host": ["{{base_url}}"],
+              "path": ["api", "syllabi", "upload"]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "5. ERROR HANDLING",
+      "item": [
+        {
+          "name": "5.1 - Syllabus: Empty File",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "courseId",
+                  "value": "{{course_id}}",
+                  "type": "text"
+                },
+                {
+                  "key": "action",
+                  "value": "create",
+                  "type": "text"
+                },
+                {
+                  "key": "file",
+                  "type": "file",
+                  "src": "/tmp/empty.pdf"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/api/syllabi/upload",
+              "host": ["{{base_url}}"],
+              "path": ["api", "syllabi", "upload"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "5.2 - Syllabus: Invalid Course",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "courseId",
+                  "value": "9999",
+                  "type": "text"
+                },
+                {
+                  "key": "action",
+                  "value": "create",
+                  "type": "text"
+                },
+                {
+                  "key": "file",
+                  "type": "file",
+                  "src": "/tmp/test-syllabus.pdf"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/api/syllabi/upload",
+              "host": ["{{base_url}}"],
+              "path": ["api", "syllabi", "upload"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "5.3 - Syllabus: No Authentication",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "courseId",
+                  "value": "{{course_id}}",
+                  "type": "text"
+                },
+                {
+                  "key": "action",
+                  "value": "create",
+                  "type": "text"
+                },
+                {
+                  "key": "file",
+                  "type": "file",
+                  "src": "/tmp/test-syllabus.pdf"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/api/syllabi/upload",
+              "host": ["{{base_url}}"],
+              "path": ["api", "syllabi", "upload"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "5.4 - Fabric API Unavailable",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{fabric_url}}/health",
+              "host": ["{{fabric_url}}"],
+              "path": ["health"]
+            }
+          },
+          "response": []
+        }
+      ]
+    }
+  ]
+}

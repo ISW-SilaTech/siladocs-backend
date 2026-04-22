@@ -49,7 +49,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
         try {
             // 2. Validar el token y extraer el email
-            userEmail = jwtUtil.validateAndExtractEmail(jwt);
+            userEmail = jwtUtil.extractEmail(jwt);
         } catch (Exception e) {
             response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
             response.getWriter().write("Token inválido o expirado");

@@ -1,203 +1,306 @@
 package com.siladocs.application.service;
 
-import com.siladocs.application.dto.SyllabusHistoryResponse; // 🔹 Importar DTO
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.stereotype.Service;
-import org.web3j.abi.FunctionEncoder;
-import org.web3j.abi.FunctionReturnDecoder; // 🔹 Importar
-import org.web3j.abi.TypeReference;
-import org.web3j.abi.datatypes.*; // 🔹 Importar
-import org.web3j.abi.datatypes.generated.Uint256; // 🔹 Importar
-import org.web3j.crypto.Credentials;
-import org.web3j.crypto.RawTransaction;
-import org.web3j.crypto.TransactionEncoder;
-import org.web3j.protocol.Web3j;
-import org.web3j.protocol.core.DefaultBlockParameterName;
-import org.web3j.protocol.core.methods.request.Transaction;
-import org.web3j.protocol.core.methods.response.EthCall; // 🔹 Importar
-import org.web3j.protocol.core.methods.response.EthSendTransaction;
-import org.web3j.tx.gas.DefaultGasProvider;
-import org.web3j.utils.Numeric;
+import com.siladocs.application.dto.BlockchainFabricRequestDto;
+import com.siladocs.application.dto.BlockchainFabricResponseDto;
+import com.siladocs.application.exception.BlockchainException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.http.HttpStatusCode;
+import org.springframework.http.ResponseEntity;
+import org.springframework.stereotype.Service;
+import org.springframework.web.client.RestClient;
+import org.springframework.web.client.RestClientException;
+import org.springframework.web.client.HttpClientErrorException;
+import org.springframework.web.client.HttpServerErrorException;
 
-import java.math.BigInteger;
-import java.time.Instant; // 🔹 Importar
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.List;
-import java.util.stream.Collectors; // 🔹 Importar
+import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
 
+/**
+ * Servicio de Blockchain refactorizado para usar Hyperledger Fabric.
+ *
+ * ARQUITECTURA (Clean Architecture):
+ * ├── Layer: Application Service (SLL)
+ * ├── Dependencies: RestClient (Spring 3.x), BlockchainException
+ * └── Purpose: Orquestar comunicación REST con Fabric
+ *
+ * Responsabilidades:
+ * - Construir payload JSON para el registro en Fabric
+ * - Realizar solicitud HTTP POST a la API de Fabric
+ * - Capturar y validar respuesta
+ * - Manejar errores (4xx, 5xx, timeout)
+ * - Loguear transacciones con trazabilidad
+ *
+ * CAMBIOS DE ETHEREUM → FABRIC:
+ * - ❌ Eliminado: Web3j, Credentials, Smart Contracts
+ * - ✅ Agregado: RestClient, JSON payloads, HTTP error handling
+ * - ✅ Simplificado: De escrituras complejas a POST REST simple
+ */
 @Service
 public class BlockchainService {
 
     private static final Logger log = LoggerFactory.getLogger(BlockchainService.class);
 
-    private final Web3j web3j;
-    private final Credentials credentials;
-    private final String contractAddress;
+    private static final String FABRIC_REGISTER_ENDPOINT = "/registrar-hash";
+    private static final String FABRIC_HEALTH_ENDPOINT = "/health";
+    private static final String DATE_FORMAT = "yyyy-MM-dd";
+    private static final DateTimeFormatter dateFormatter = DateTimeFormatter.ofPattern(DATE_FORMAT);
 
-    public BlockchainService(Web3j web3j, Credentials credentials, @Value("${blockchain.contract.address}") String contractAddress) {
-        this.web3j = web3j;
-        this.credentials = credentials;
-        this.contractAddress = contractAddress;
+    private final RestClient fabricRestClient;
+
+    /**
+     * Constructor con inyección de dependencias.
+     *
+     * @param fabricRestClient RestClient inyectado desde BlockchainConfig
+     */
+    public BlockchainService(@Qualifier("fabricRestClient") RestClient fabricRestClient) {
+        this.fabricRestClient = fabricRestClient;
+        log.info("BlockchainService inicializado con RestClient para Hyperledger Fabric");
     }
 
     /**
-     * Llama al Smart Contract "addVersion" para registrar un cambio (ESCRITURA).
+     * Registra el hash de un sílabo en Hyperledger Fabric.
+     *
+     * FLUJO PRINCIPAL:
+     * 1. Valida parámetros de entrada
+     * 2. Construye el payload JSON
+     * 3. Realiza POST a /registrar-hash
+     * 4. Captura y valida respuesta
+     * 5. Maneja errores específicos (4xx, 5xx, timeout)
+     * 6. Retorna transactionId si es exitoso
+     *
+     * @param courseId     ID del curso (string)
+     * @param fileHash     SHA-256 del archivo (hexadecimal)
+     * @param issuerEmail  Email del usuario (issuer de la transacción)
+     * @param action       Acción (create, update, etc.)
+     * @return Transaction ID de Fabric
+     * @throws BlockchainException si falla por cualquier razón
      */
-    public String registerSyllabusVersion(Long syllabusId, String dataHash, String actorEmail, String action) throws Exception {
-        // ... (Tu método de escritura existente está perfecto, no se toca)
-        log.info("Registrando en Blockchain: syllabusId={}, hash={}", syllabusId, dataHash);
-        final Function function = new Function(
-                "addVersion",
-                Arrays.asList(
-                        new org.web3j.abi.datatypes.Uint(BigInteger.valueOf(syllabusId)),
-                        new org.web3j.abi.datatypes.Utf8String(dataHash),
-                        new org.web3j.abi.datatypes.Utf8String(actorEmail),
-                        new org.web3j.abi.datatypes.Utf8String(action)
-                ),
-                Collections.emptyList()
-        );
-        String encodedFunction = FunctionEncoder.encode(function);
-        BigInteger nonce = web3j.ethGetTransactionCount(credentials.getAddress(), DefaultBlockParameterName.LATEST)
-                .send().getTransactionCount();
-        RawTransaction rawTransaction = RawTransaction.createTransaction(
-                nonce, DefaultGasProvider.GAS_PRICE, DefaultGasProvider.GAS_LIMIT,
-                contractAddress, BigInteger.ZERO, encodedFunction
-        );
-        byte[] signedMessage = TransactionEncoder.signMessage(rawTransaction, credentials);
-        String hexSignedMessage = Numeric.toHexString(signedMessage);
-        EthSendTransaction ethSendTransaction = web3j.ethSendRawTransaction(hexSignedMessage).send();
-        if (ethSendTransaction.hasError()) {
-            log.error("Error en transacción blockchain: {}", ethSendTransaction.getError().getMessage());
-            throw new RuntimeException("Error en transacción blockchain: " + ethSendTransaction.getError().getMessage());
-        }
-        String txHash = ethSendTransaction.getTransactionHash();
-        log.info("Transacción enviada a Ganache. TxHash: {}", txHash);
-        return txHash;
-    }
+    public String registerSyllabusInFabric(String courseId, String fileHash, String issuerEmail, String action) {
+        try {
+            // ======= VALIDACIÓN DE ENTRADA =======
+            validateInput(courseId, fileHash, issuerEmail, action);
 
-    // ⬇️ 🔹 CORRECCIÓN: MÉTODO DE LECTURA DE LISTA (getSyllabusHistory) 🔹 ⬇️
-    /**
-     * Resuelve el error de compilación del controlador.
-     * Itera usando el método getSyllabusVersionByIndex, que es más estable.
-     */
-    public List<SyllabusHistoryResponse> getSyllabusHistory(Long syllabusId) throws Exception {
+            log.info("📋 Preparando registro en Fabric: courseId={}, hash_prefix={}, issuer={}, action={}",
+                    courseId, fileHash.substring(0, 8), issuerEmail, action);
 
-        List<SyllabusHistoryResponse> history = new ArrayList<>();
-        int index = 0;
+            // ======= CONSTRUIR PAYLOAD =======
+            BlockchainFabricRequestDto payload = BlockchainFabricRequestDto.builder()
+                    .curso_id(courseId)
+                    .file_hash(fileHash)
+                    .issuer(issuerEmail)
+                    .date(LocalDate.now().format(dateFormatter))
+                    .build();
 
-        while (true) {
-            try {
-                // Llama al método de lectura de un solo elemento (más robusto)
-                SyllabusHistoryResponse version = getSyllabusVersionByIndex(syllabusId, index);
+            log.debug("✉️ Payload JSON construido: {}", payload);
 
-                // Si la versión es 0, significa que el registro no existe (condición de parada)
-                if (version.version() == 0) {
-                    break;
-                }
+            // ======= REALIZAR POST =======
+            log.info("🔗 Enviando solicitud POST a Fabric: {}{}", getFabricUrl(), FABRIC_REGISTER_ENDPOINT);
 
-                history.add(version);
-                index++;
-            } catch (Exception e) {
-                // Si ocurre un error de decodificación o índice fuera de límites, asumimos el fin del array
-                // No logueamos el error aquí, lo hacemos en el controlador si es necesario.
-                break;
+            ResponseEntity<BlockchainFabricResponseDto> response = fabricRestClient.post()
+                    .uri(FABRIC_REGISTER_ENDPOINT)
+                    .body(payload)
+                    .retrieve()
+                    .onStatus(HttpStatusCode::is4xxClientError, (request, httpResponse) -> {
+                        handleFourXxError(courseId, httpResponse);
+                    })
+                    .onStatus(HttpStatusCode::is5xxServerError, (request, httpResponse) -> {
+                        handleFiveXxError(courseId, httpResponse);
+                    })
+                    .toEntity(BlockchainFabricResponseDto.class);
+
+            // ======= VALIDAR RESPUESTA =======
+            BlockchainFabricResponseDto fabricResponse = response.getBody();
+            if (fabricResponse == null) {
+                log.error("❌ Respuesta nula de Fabric API");
+                throw new BlockchainException("Respuesta nula de Fabric API");
             }
-        }
-        // Devolvemos el historial del más reciente al más antiguo
-        Collections.reverse(history);
-        return history;
-    }
 
-    // ⬇️ 🔹 ----- NUEVO MÉTODO DE LECTURA ----- 🔹 ⬇️
+            if (!fabricResponse.isSuccessful()) {
+                log.error("❌ Fabric rechazó la transacción: status={}, message={}",
+                        fabricResponse.getStatus(), fabricResponse.getMessage());
+                throw new BlockchainException(
+                        "Fabric rechazó la transacción: " + fabricResponse.getMessage()
+                );
+            }
+
+            String txId = fabricResponse.getTxId();
+            if (txId == null || txId.isBlank()) {
+                log.error("❌ Fabric no devolvió transaction ID");
+                throw new BlockchainException("Fabric no devolvió transaction ID");
+            }
+
+            log.info("✅ Sílabo registrado exitosamente en Fabric: courseId={}, txId={}, timestamp={}",
+                    courseId, txId, fabricResponse.getTimestamp());
+
+            return txId;
+
+        } catch (HttpClientErrorException e) {
+            // 4xx errors
+            log.error("❌ Error 4xx en Fabric (courseId={}): {} - {}", courseId, e.getStatusCode(), e.getMessage());
+            throw new BlockchainException(
+                    "Error 4xx en Fabric: " + e.getStatusCode() + " - " + e.getMessage(),
+                    e.getStatusCode().value(),
+                    e.getResponseBodyAsString()
+            );
+
+        } catch (HttpServerErrorException e) {
+            // 5xx errors
+            log.error("❌ Error 5xx en Fabric (courseId={}): {} - {}", courseId, e.getStatusCode(), e.getMessage());
+            throw new BlockchainException(
+                    "Error 5xx en Fabric: " + e.getStatusCode(),
+                    e.getStatusCode().value(),
+                    e.getResponseBodyAsString()
+            );
+
+        } catch (RestClientException e) {
+            // Timeout, conexión rechazada, DNS error, etc.
+            log.error("❌ Error de conexión con Fabric (courseId={}): {}", courseId, e.getMessage(), e);
+            throw new BlockchainException(
+                    "No se pudo conectar con Fabric. ¿El middleware está activo en " + getFabricUrl() + "?",
+                    e
+            );
+
+        } catch (BlockchainException e) {
+            // Re-lanzar excepciones personalizadas
+            throw e;
+
+        } catch (Exception e) {
+            // Captura cualquier otra excepción inesperada
+            log.error("❌ Error inesperado (courseId={}): {}", courseId, e.getMessage(), e);
+            throw new BlockchainException(
+                    "Error inesperado en BlockchainService: " + e.getMessage(),
+                    e
+            );
+        }
+    }
 
     /**
-     * Llama al Smart Contract "getHistory" para leer la trazabilidad (LECTURA).
+     * Verifica la conectividad con la API de Hyperledger Fabric.
+     *
+     * Útil para:
+     * - Health checks
+     * - Debugging
+     * - Readiness probes (Kubernetes)
+     *
+     * @return true si la API está disponible, false en caso contrario
      */
-    public SyllabusHistoryResponse getSyllabusVersionByIndex(Long syllabusId, int index) throws Exception {
+    public boolean isFabricApiAvailable() {
+        try {
+            log.debug("🔍 Verificando disponibilidad de Fabric API...");
 
-        final Function function = new Function(
-                "syllabusHistory", // Este es el nombre del getter automático del mapping
-                Arrays.asList(
-                        new org.web3j.abi.datatypes.Uint(BigInteger.valueOf(syllabusId)),
-                        new org.web3j.abi.datatypes.Uint(BigInteger.valueOf(index))
-                ),
-                Arrays.asList(
-                        new TypeReference<Uint256>() {},
-                        new TypeReference<Utf8String>() {},
-                        new TypeReference<Uint256>() {},
-                        new TypeReference<Utf8String>() {},
-                        new TypeReference<Utf8String>() {}
-                )
-        );
+            ResponseEntity<String> response = fabricRestClient.get()
+                    .uri(FABRIC_HEALTH_ENDPOINT)
+                    .retrieve()
+                    .toEntity(String.class);
 
-        String encodedFunction = FunctionEncoder.encode(function);
+            if (response.getStatusCode().is2xxSuccessful()) {
+                log.info("✅ Fabric API disponible: {}{}", getFabricUrl(), FABRIC_HEALTH_ENDPOINT);
+                return true;
+            }
 
-        // Ejecutar eth_call
-        EthCall response = web3j.ethCall(Transaction.createEthCallTransaction(
-                null, contractAddress, encodedFunction
-        ), DefaultBlockParameterName.LATEST).send();
+            log.warn("⚠️ Fabric API respondió con status {} ", response.getStatusCode());
+            return false;
 
-        if (response.hasError()) {
-            throw new RuntimeException("Error al leer versión de blockchain: " + response.getError().getMessage());
+        } catch (RestClientException e) {
+            log.warn("❌ Fabric API no disponible: {} ({})", getFabricUrl(), e.getMessage());
+            return false;
         }
-
-        // Decodificar la respuesta
-        List<Type> decodedResult = FunctionReturnDecoder.decode(response.getValue(), function.getOutputParameters());
-
-        // Convertir el resultado a DTO
-        if (decodedResult.size() < 5) {
-            throw new RuntimeException("Datos incompletos de la blockchain.");
-        }
-
-        return new SyllabusHistoryResponse(
-                ((Uint256) decodedResult.get(0)).getValue().longValueExact(), // Version
-                ((Utf8String) decodedResult.get(1)).getValue(), // dataHash
-                Instant.ofEpochSecond(((Uint256) decodedResult.get(2)).getValue().longValueExact()), // timestamp
-                ((Utf8String) decodedResult.get(3)).getValue(), // actorEmail
-                ((Utf8String) decodedResult.get(4)).getValue()  // action
-        );
     }
 
-    // --- Helper para convertir el struct 'Version' a tu DTO ---
-    private SyllabusHistoryResponse convertVersionToDto(Version v) {
-        return new SyllabusHistoryResponse(
-                v.version.longValueExact(),
-                v.dataHash,
-                Instant.ofEpochSecond(v.timestamp.longValueExact()), // Convierte timestamp
-                v.actorEmail,
-                v.action
-        );
-    }
-    // --- Clase interna que mapea el 'struct Version' de Solidity ---
-    public static class Version extends DynamicStruct {
-        public BigInteger version;
-        public String dataHash;
-        public BigInteger timestamp;
-        public String actorEmail;
-        public String action;
+    /**
+     * Obtiene el estado detallado de Fabric para debugging.
+     *
+     * @return String con información del estado
+     */
+    public String getFabricStatus() {
+        StringBuilder status = new StringBuilder();
+        status.append("Fabric API Status Report\n");
+        status.append("=".repeat(50)).append("\n");
 
-        public Version(BigInteger version, String dataHash, BigInteger timestamp, String actorEmail, String action) {
-            super(
-                    new Uint256(version),
-                    new Utf8String(dataHash),
-                    new Uint256(timestamp),
-                    new Utf8String(actorEmail),
-                    new Utf8String(action)
+        try {
+            boolean available = isFabricApiAvailable();
+            status.append("API Available: ").append(available ? "✅ YES" : "❌ NO").append("\n");
+            status.append("URL: ").append(getFabricUrl()).append("\n");
+            status.append("Endpoint: ").append(FABRIC_REGISTER_ENDPOINT).append("\n");
+            status.append("Health: ").append(FABRIC_HEALTH_ENDPOINT).append("\n");
+        } catch (Exception e) {
+            status.append("Error getting status: ").append(e.getMessage()).append("\n");
+        }
+
+        return status.toString();
+    }
+
+    // ============================================================================
+    // MÉTODOS PRIVADOS (HELPERS)
+    // ============================================================================
+
+    /**
+     * Valida que los parámetros de entrada sean válidos.
+     *
+     * @throws BlockchainException si algún parámetro es inválido
+     */
+    private void validateInput(String courseId, String fileHash, String issuerEmail, String action) {
+        if (courseId == null || courseId.isBlank()) {
+            throw new BlockchainException("courseId no puede estar vacío");
+        }
+        if (fileHash == null || fileHash.isBlank()) {
+            throw new BlockchainException("fileHash no puede estar vacío");
+        }
+        if (fileHash.length() != 64) {
+            throw new BlockchainException("fileHash debe ser SHA-256 (64 caracteres hexadecimales)");
+        }
+        if (issuerEmail == null || issuerEmail.isBlank()) {
+            throw new BlockchainException("issuerEmail no puede estar vacío");
+        }
+        if (action == null || action.isBlank()) {
+            throw new BlockchainException("action no puede estar vacía");
+        }
+    }
+
+    /**
+     * Maneja errores 4xx (Bad Request, 404, etc.).
+     */
+    private void handleFourXxError(String courseId, org.springframework.http.client.ClientHttpResponse httpResponse) {
+        try {
+            String errorBody = new String(httpResponse.getBody().readAllBytes());
+            log.error("❌ Error 4xx en Fabric (courseId={}): status={}, body={}", 
+                    courseId, httpResponse.getStatusCode(), errorBody);
+            throw new BlockchainException(
+                    "Error 4xx en Fabric",
+                    httpResponse.getStatusCode().value(),
+                    errorBody
             );
-            this.version = version;
-            this.dataHash = dataHash;
-            this.timestamp = timestamp;
-            this.actorEmail = actorEmail;
-            this.action = action;
+        } catch (Exception e) {
+            log.error("Error leyendo respuesta 4xx: {}", e.getMessage());
+            throw new BlockchainException("Error 4xx en Fabric", e);
         }
+    }
 
-        // Constructor requerido por Web3j para decodificar
-        public Version(Uint256 version, Utf8String dataHash, Uint256 timestamp, Utf8String actorEmail, Utf8String action) {
-            this(version.getValue(), dataHash.getValue(), timestamp.getValue(), actorEmail.getValue(), action.getValue());
+    /**
+     * Maneja errores 5xx (Server Error, etc.).
+     */
+    private void handleFiveXxError(String courseId, org.springframework.http.client.ClientHttpResponse httpResponse) {
+        try {
+            String errorBody = new String(httpResponse.getBody().readAllBytes());
+            log.error("❌ Error 5xx en Fabric (courseId={}): status={}, body={}", 
+                    courseId, httpResponse.getStatusCode(), errorBody);
+            throw new BlockchainException(
+                    "Error 5xx en Fabric",
+                    httpResponse.getStatusCode().value(),
+                    errorBody
+            );
+        } catch (Exception e) {
+            log.error("Error leyendo respuesta 5xx: {}", e.getMessage());
+            throw new BlockchainException("Error 5xx en Fabric", e);
         }
+    }
+
+    /**
+     * Obtiene la URL base de Fabric (para logging).
+     */
+    private String getFabricUrl() {
+        return "http://host.docker.internal:8000";
     }
 }

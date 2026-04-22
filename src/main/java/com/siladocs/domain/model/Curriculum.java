@@ -11,7 +11,8 @@ public class Curriculum { // 'Malla' in Spanish
     private Long id;
     private Long careerId; // Foreign key reference to Career
     private String name; // e.g., "Ingeniería de Software - Plan 2023"
-    private Integer year; // e.g., 2023
+    // Por esto:
+    private Integer year;
     private Integer courseCount;
     private Integer totalCredits;
     private String status; // e.g., "Activo", "Inactivo"

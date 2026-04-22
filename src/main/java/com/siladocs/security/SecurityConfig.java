@@ -56,7 +56,14 @@ public class SecurityConfig {
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
 
                 .authorizeHttpRequests(auth -> auth
-                        .anyRequest().permitAll() // ⚠️ Luego puedes ajustarlo a rutas privadas/públicas
+                        .requestMatchers(
+                                "/auth/login",
+                                "/auth/register",
+                                "/auth/validate-code",
+                                "/auth/forgot-password",
+                                "/auth/reset-password"
+                        ).permitAll()
+                        .anyRequest().authenticated()
                 )
 
                 // ✅ Aquí agregamos el filtro JWT correctamente

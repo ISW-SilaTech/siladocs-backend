@@ -28,20 +28,19 @@ public class SyllabusController {
         this.blockchainService = blockchainService;
     }
 
-    @PostMapping("/upload")
-    public ResponseEntity<?> uploadSyllabus(Authentication authentication,
-                                            @RequestParam("file") MultipartFile file,
-                                            @RequestParam("courseId") Long courseId,
-                                            @RequestParam("action") String action) {
+    @PostMapping(value = "/upload", consumes = org.springframework.http.MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<?> uploadSyllabus(
+        Authentication authentication,
+        @RequestPart("file") MultipartFile file, // Cambiado de @RequestParam a @RequestPart
+        @RequestParam("courseId") Long courseId,
+        @RequestParam("action") String action) {
         try {
-            // 1. Simulación de subida a Minio
-            String fileUrl = "http://minio:9000/siladocs/" + file.getOriginalFilename();
-            String fileContent = new String(file.getBytes());
-
-            // 2. Llamar al servicio sin el 'userEmail' (el servicio lo obtiene internamente)
-            syllabusService.uploadSyllabus(courseId, fileContent, fileUrl, action);
-
-            return ResponseEntity.status(HttpStatus.CREATED).body(Map.of("message", "Sílabo registrado exitosamente"));
+            // Llamar al servicio con la nueva firma: (courseId, file, action)
+            syllabusService.uploadSyllabus(courseId, file, action);
+            
+            // Retornar respuesta de éxito
+            return ResponseEntity.status(HttpStatus.CREATED)
+                    .body(Map.of("message", "Sílabo registrado exitosamente", "courseId", courseId));
 
         } catch (Exception e) {
             log.error("Error FATAL en la subida del sílabo: {}", e.getMessage(), e);
@@ -55,17 +54,15 @@ public class SyllabusController {
      * Esta es la forma más robusta de evitar el error de decodificación de arrays complejos de Web3j.
      */
     @GetMapping("/{id}/history")
-    // 🔹 CORRECCIÓN CLAVE: Cambia el tipo de retorno a ResponseEntity<?>
     public ResponseEntity<?> getSyllabusHistory(@PathVariable("id") Long id) {
-        log.info("LECTURA DE BLOCKCHAIN solicitada para Syllabus ID: {}", id);
+        log.info("LECTURA DE HISTORIAL solicitada para Syllabus ID: {}", id);
         try {
-            // Llama al BlockchainService para leer la cadena
-            List<SyllabusHistoryResponse> history = blockchainService.getSyllabusHistory(id);
-
-            // Si la lista está vacía, devuelve un mensaje más informativo
+            // En la nueva arquitectura con Fabric, el historial se mantiene en la BD
+            // Retornar lista vacía o información almacenada en PostgreSQL
+            List<SyllabusHistoryResponse> history = new ArrayList<>();
+            
             if (history.isEmpty()) {
-                log.warn("El historial para el Sílabo ID {} fue leído pero está vacío.", id);
-                // Retorna la lista vacía (tipo List<SyllabusHistoryResponse>)
+                log.info("Historial para Sílabo ID {} consultado (vacío en esta versión).", id);
                 return ResponseEntity.ok(history);
             }
 

@@ -19,6 +19,13 @@ siladocs:
   jwt:
     secret: change_this_secret_for_dev_please_replace
     expiration-ms: 86400000
+  
+  # Configuración de almacenamiento MinIO
+  storage:
+    endpoint: http://localhost:9000
+    access-key: minioadmin
+    secret-key: minioadmin
+    bucket: siladocs
 
 # Configuración de Actuator (es común)
 management:
@@ -29,3 +36,13 @@ management:
   endpoint:
     health:
       show-details: always
+
+# Configuración del Frontend
+app:
+  frontend:
+    reset-url: http://localhost:3000/reset-password
+
+blockchain:
+  fabric:
+    api:
+      url: http://host.docker.internal:8000

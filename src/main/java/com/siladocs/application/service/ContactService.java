@@ -12,6 +12,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import java.util.Optional;
 
 @Service
 public class ContactService {
@@ -19,10 +20,9 @@ public class ContactService {
     private static final Logger log = LoggerFactory.getLogger(ContactService.class);
 
     private final ContactRequestRepository contactRepository;
-    private final JavaMailSender mailSender;
-    // 🔹 (Opcional pero recomendado: un Mapper)
+    private final Optional<JavaMailSender> mailSender;
 
-    public ContactService(ContactRequestRepository contactRepository, JavaMailSender mailSender) {
+    public ContactService(ContactRequestRepository contactRepository, Optional<JavaMailSender> mailSender) {
         this.contactRepository = contactRepository;
         this.mailSender = mailSender;
     }
@@ -61,11 +61,14 @@ public class ContactService {
         );
         message.setText(text);
 
-        try {
-            mailSender.send(message);
-            log.info("Email de notificación enviado para {}", dto.getEmail());
-        } catch (MailException e) {
-            log.error("Error al enviar email de notificación para {}: {}", dto.getEmail(), e.getMessage(), e);
-        }
+        // Enviar email solo si JavaMailSender está disponible
+        mailSender.ifPresent(sender -> {
+            try {
+                sender.send(message);
+                log.info("Email de notificación enviado para {}", dto.getEmail());
+            } catch (MailException e) {
+                log.error("Error al enviar email de notificación para {}: {}", dto.getEmail(), e.getMessage(), e);
+            }
+        });
     }
 }

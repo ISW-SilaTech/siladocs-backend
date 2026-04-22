@@ -1,7 +1,9 @@
 package com.siladocs.application.service;
 
 import com.siladocs.domain.model.User;
+import com.siladocs.domain.model.Institution;
 import com.siladocs.domain.repository.UserRepository;
+import com.siladocs.domain.repository.InstitutionRepository;
 import com.siladocs.infrastructure.persistence.entity.PasswordResetToken;
 import com.siladocs.infrastructure.persistence.jparepository.PasswordResetTokenRepository;
 import com.siladocs.security.JwtUtil;
@@ -33,21 +35,27 @@ public class AuthService implements UserDetailsService {
     private final PasswordEncoder passwordEncoder;
     private final JwtUtil jwtUtil;
     private final PasswordResetTokenRepository tokenRepo;
-    private final JavaMailSender mailSender;
+    private final Optional<JavaMailSender> mailSender;
     private final String frontendResetUrl;
+    private final InstitutionRepository institutionRepository;
+    private final AccessCodeService accessCodeService;
 
     public AuthService(UserRepository userRepository,
                        PasswordEncoder passwordEncoder,
                        JwtUtil jwtUtil,
                        PasswordResetTokenRepository tokenRepo,
-                       JavaMailSender mailSender,
-                       @Value("${app.frontend.reset-url}") String frontendResetUrl) {
+                       Optional<JavaMailSender> mailSender,
+                       @Value("${app.frontend.reset-url}") String frontendResetUrl,
+                       InstitutionRepository institutionRepository,
+                       AccessCodeService accessCodeService) {
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
         this.jwtUtil = jwtUtil;
         this.tokenRepo = tokenRepo;
         this.mailSender = mailSender;
         this.frontendResetUrl = frontendResetUrl;
+        this.institutionRepository = institutionRepository;
+        this.accessCodeService = accessCodeService;
     }
 
     // ... (Tus métodos existentes: registerAdmin, login, changePassword, etc.) ...
@@ -91,7 +99,12 @@ public class AuthService implements UserDetailsService {
         if (!passwordEncoder.matches(rawPassword, user.getPasswordHash())) {
             throw new RuntimeException("Contraseña incorrecta");
         }
-        return jwtUtil.generateToken(user.getEmail());
+        return jwtUtil.generateToken(
+                user.getEmail(),
+                String.valueOf(user.getUserId()),
+                user.getInstitutionId() != null ? String.valueOf(user.getInstitutionId()) : null,
+                user.getRole()
+        );
     }
 
     public void registerAdmin(String name, String email, String rawPassword) {
@@ -126,7 +139,9 @@ public class AuthService implements UserDetailsService {
                 "Para restablecer tu contraseña, haz clic en el siguiente enlace:\n" + resetLink + "\n\n" +
                 "Este enlace expira en 1 hora.\n\n" +
                 "Gracias,\nEl equipo de Siladocs");
-        mailSender.send(message);
+        
+        // Enviar email solo si JavaMailSender está disponible
+        mailSender.ifPresent(sender -> sender.send(message));
     }
 
     @Transactional
@@ -142,6 +157,51 @@ public class AuthService implements UserDetailsService {
         user.setPasswordHash(passwordEncoder.encode(newPassword));
         userRepository.save(user);
         tokenRepo.delete(resetToken);
+    }
+
+    @Transactional
+    public String registerInstitution(String accessCodeValue,
+                                      String fullName,
+                                      String email,
+                                      String rawPassword) {
+
+        if (userRepository.findByEmail(email).isPresent()) {
+            throw new RuntimeException("El correo ya está registrado");
+        }
+
+        // 1. Validar código
+        var accessCode = accessCodeService.validateCode(accessCodeValue);
+
+        // 2. Crear institución
+        Institution institution = new Institution(
+                accessCode.getInstitutionName(),
+                null,
+                "ACTIVE"
+        );
+
+        Institution savedInstitution = institutionRepository.save(institution);
+
+        // 3. Crear usuario ADMIN
+        User admin = new User(
+                fullName,
+                email,
+                passwordEncoder.encode(rawPassword),
+                "ROLE_ADMIN",
+                savedInstitution.getInstitutionId()
+        );
+
+        User savedUser = userRepository.save(admin);
+
+        // 4. Marcar código como usado
+        accessCodeService.markAsUsed(accessCode);
+
+        // 5. Generar JWT
+        return jwtUtil.generateToken(
+                savedUser.getEmail(),
+                String.valueOf(savedUser.getUserId()),
+                String.valueOf(savedInstitution.getInstitutionId()),
+                savedUser.getRole()
+        );
     }
 
     @Transactional

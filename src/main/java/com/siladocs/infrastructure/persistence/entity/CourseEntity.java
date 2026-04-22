@@ -30,7 +30,7 @@ public class CourseEntity {
     @Column(name = "syllabus_count", nullable = false)
     private Integer syllabusCount = 0; // Default value
 
-    @Column(nullable = false)
+    @Column(name = "\"year\"", nullable = false)
     private Integer year;
 
     @Column(nullable = false)

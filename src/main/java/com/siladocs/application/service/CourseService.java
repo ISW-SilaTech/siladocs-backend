@@ -81,8 +81,8 @@ public class CourseService {
             String userEmail = getAuthenticatedUserEmail();
             String dataHash = DigestUtils.sha256Hex(request.toString());
 
-            String txHash = blockchainService.registerSyllabusVersion(
-                    savedEntity.getId(),
+            String txHash = blockchainService.registerSyllabusInFabric(
+                    savedEntity.getId().toString(),
                     dataHash,
                     userEmail,
                     "CURSO_CREADO"
@@ -156,8 +156,8 @@ public class CourseService {
             String userEmail = getAuthenticatedUserEmail();
             String dataHash = DigestUtils.sha256Hex(request.toString());
 
-            String txHash = blockchainService.registerSyllabusVersion(
-                    updatedEntity.getId(),
+            String txHash = blockchainService.registerSyllabusInFabric(
+                    updatedEntity.getId().toString(),
                     dataHash,
                     userEmail,
                     "CURSO_ACTUALIZADO"
@@ -182,8 +182,8 @@ public class CourseService {
             String userEmail = getAuthenticatedUserEmail();
             String dataHash = DigestUtils.sha256Hex(entity.toString());
 
-            String txHash = blockchainService.registerSyllabusVersion(
-                    id,
+            String txHash = blockchainService.registerSyllabusInFabric(
+                    id.toString(),
                     dataHash,
                     userEmail,
                     "CURSO_ELIMINADO"
