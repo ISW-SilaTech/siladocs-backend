@@ -8,6 +8,7 @@ public interface InstitutionRepository {
 
     // Tu servicio de aplicación solo necesita estos dos métodos
     Institution save(Institution institution);
+    Institution findByName(String name);
 
     Optional<Institution> findByDomain(String domain);
 }

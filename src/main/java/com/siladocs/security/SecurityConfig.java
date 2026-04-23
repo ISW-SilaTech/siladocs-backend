@@ -61,7 +61,14 @@ public class SecurityConfig {
                                 "/auth/register",
                                 "/auth/validate-code",
                                 "/auth/forgot-password",
-                                "/auth/reset-password"
+                                "/auth/reset-password",
+                                "/v3/api-docs/**",
+                                "/swagger-ui/**",
+                                "/swagger-ui.html",
+                                "/api/institutions/**",
+                                "/api/access-codes/**",
+                                "/api/institutions",
+                                "/api/access-codes"
                         ).permitAll()
                         .anyRequest().authenticated()
                 )

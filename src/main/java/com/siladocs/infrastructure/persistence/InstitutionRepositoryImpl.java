@@ -5,11 +5,11 @@ import com.siladocs.domain.repository.InstitutionRepository;
 import com.siladocs.infrastructure.persistence.entity.InstitutionEntity;
 import com.siladocs.infrastructure.persistence.jparepository.InstitutionJpaRepository;
 import com.siladocs.infrastructure.persistence.mapper.InstitutionMapper;
-import org.springframework.stereotype.Repository; // <-- 1. Importa la anotación
+import org.springframework.stereotype.Repository;
 
 import java.util.Optional;
 
-@Repository // <-- 2. Añade la anotación aquí
+@Repository
 public class InstitutionRepositoryImpl implements InstitutionRepository {
 
     private final InstitutionJpaRepository jpaRepository;
@@ -20,12 +20,24 @@ public class InstitutionRepositoryImpl implements InstitutionRepository {
         this.mapper = mapper;
     }
 
-    // ... (el resto de tus métodos save() y findByDomain() van aquí) ...
     @Override
     public Institution save(Institution institution) {
         InstitutionEntity entity = mapper.toEntity(institution);
         InstitutionEntity savedEntity = jpaRepository.save(entity);
         return mapper.toDomain(savedEntity);
+    }
+
+    // ⬇️ CORRECCIÓN: Buscamos el Entity y lo pasamos por el Mapper
+    @Override
+    public Institution findByName(String name) {
+        InstitutionEntity entity = jpaRepository.findByName(name);
+        
+        if (entity == null) {
+            return null; // O lanza una excepción si tu lógica de dominio lo prefiere
+        }
+        
+        // Usamos tu mapper para traducirlo
+        return mapper.toDomain(entity);
     }
 
     @Override

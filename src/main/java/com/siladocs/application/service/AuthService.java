@@ -161,45 +161,43 @@ public class AuthService implements UserDetailsService {
 
     @Transactional
     public String registerInstitution(String accessCodeValue,
-                                      String fullName,
-                                      String email,
-                                      String rawPassword) {
+                           String fullName,
+                           String email,
+                           String rawPassword) {
 
         if (userRepository.findByEmail(email).isPresent()) {
             throw new RuntimeException("El correo ya está registrado");
         }
 
-        // 1. Validar código
+        // 1. Validar el código (arroja excepción si es inválido, expirado o usado)
         var accessCode = accessCodeService.validateCode(accessCodeValue);
 
-        // 2. Crear institución
-        Institution institution = new Institution(
-                accessCode.getInstitutionName(),
-                null,
-                "ACTIVE"
-        );
+        // 2. Buscar la institución que ya existe
+        Institution institution = institutionRepository.findByName(accessCode.getInstitutionName());
+        
+        if (institution == null) {
+            throw new RuntimeException("La institución asociada al código no existe en el sistema.");
+        }
 
-        Institution savedInstitution = institutionRepository.save(institution);
-
-        // 3. Crear usuario ADMIN
-        User admin = new User(
+        // 3. Crear el nuevo usuario
+        User newUser = new User(
                 fullName,
                 email,
                 passwordEncoder.encode(rawPassword),
-                "ROLE_ADMIN",
-                savedInstitution.getInstitutionId()
+                "ROLE_USER", // O el rol que desees asignar por defecto
+                institution.getInstitutionId()
         );
 
-        User savedUser = userRepository.save(admin);
+        User savedUser = userRepository.save(newUser);
 
         // 4. Marcar código como usado
         accessCodeService.markAsUsed(accessCode);
 
-        // 5. Generar JWT
+        // 5. Generar y retornar el JWT
         return jwtUtil.generateToken(
                 savedUser.getEmail(),
                 String.valueOf(savedUser.getUserId()),
-                String.valueOf(savedInstitution.getInstitutionId()),
+                String.valueOf(institution.getInstitutionId()),
                 savedUser.getRole()
         );
     }
