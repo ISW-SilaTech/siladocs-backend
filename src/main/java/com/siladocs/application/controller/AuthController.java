@@ -51,11 +51,23 @@ public class AuthController {
         this.accessCodeService = accessCodeService;
     }
 
-    @PostMapping("/validate-code")
+    // ⬇️ 🔹 CAMBIADO A GET MAPPING Y REFACTORIZADO 🔹 ⬇️
+    @GetMapping("/validate-code")
     @Operation(summary = "Validar código de acceso institucional")
-    public ResponseEntity<?> validateCode(@RequestBody @jakarta.validation.Valid ValidateCodeRequest request) {
-        accessCodeService.validateCode(request.code());
-        return ResponseEntity.ok(Map.of("message", "Código válido"));
+    public ResponseEntity<?> validateCode(@RequestParam String code) {
+        try {
+            // Guardamos el resultado en una variable para extraer el nombre
+            var accessCode = accessCodeService.validateCode(code);
+            
+            // Devolvemos el mensaje Y el nombre de la institución
+            return ResponseEntity.ok(Map.of(
+                    "message", "Código válido",
+                    "institutionName", accessCode.getInstitutionName()
+            ));
+            
+        } catch (RuntimeException e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
     }
 
     @PostMapping("/register")
