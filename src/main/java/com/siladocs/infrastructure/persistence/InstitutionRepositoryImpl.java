@@ -27,6 +27,13 @@ public class InstitutionRepositoryImpl implements InstitutionRepository {
         return mapper.toDomain(savedEntity);
     }
 
+    @Override
+    public Optional<Institution> findById(Long id) {
+        // jpaRepository ya trae findById por defecto porque hereda de JpaRepository
+        // Solo necesitamos pasarlo por el mapper para convertir Entity a Domain
+        return jpaRepository.findById(id).map(mapper::toDomain);
+    }
+
     // ⬇️ CORRECCIÓN: Buscamos el Entity y lo pasamos por el Mapper
     @Override
     public Institution findByName(String name) {

@@ -20,6 +20,8 @@ import org.springframework.security.core.Authentication;
 // ---
 import org.springframework.web.bind.annotation.*;
 
+import com.siladocs.domain.repository.InstitutionRepository;
+
 import java.util.Map;
 
 // DTOs (Records) para los nuevos endpoints
@@ -39,16 +41,19 @@ public class AuthController {
     // 🔹 1. Inyecta el AuthenticationManager
     private final AuthenticationManager authenticationManager;
     private final AccessCodeService accessCodeService;
+    private final InstitutionRepository institutionRepo;
 
     // 🔹 2. Constructor actualizado
     public AuthController(AuthService authService,
                           UserRepository userRepo,
                           AuthenticationManager authenticationManager,
-                          AccessCodeService accessCodeService) {
+                          AccessCodeService accessCodeService,
+                          InstitutionRepository institutionRepo) {
         this.authService = authService;
         this.userRepo = userRepo;
         this.authenticationManager = authenticationManager;
         this.accessCodeService = accessCodeService;
+        this.institutionRepo = institutionRepo;
     }
 
     // ⬇️ 🔹 CAMBIADO A GET MAPPING Y REFACTORIZADO 🔹 ⬇️
@@ -104,12 +109,21 @@ public class AuthController {
         User user = userRepo.findByEmail(email)
                 .orElseThrow(() -> new RuntimeException("Usuario no encontrado"));
 
+        // ⬅️ Buscamos el nombre de la institución dinámicamente
+        String institutionName = "Institución sin asignar";
+        if (user.getInstitutionId() != null) {
+            institutionName = institutionRepo.findById(user.getInstitutionId())
+                    .map(inst -> inst.getName()) // Asumiendo que tu entidad Institution tiene getName()
+                    .orElse("Institución no encontrada");
+        }
+
         return ResponseEntity.ok(Map.of(
                 "userId", user.getUserId(),
                 "email", user.getEmail(),
                 "fullName", user.getName(),
                 "role", user.getRole(),
-                "institutionId", user.getInstitutionId()
+                "institutionId", user.getInstitutionId() != null ? user.getInstitutionId() : "",
+                "institutionName", institutionName // ⬅️ AHORA ENVIAMOS EL NOMBRE
         ));
     }
 

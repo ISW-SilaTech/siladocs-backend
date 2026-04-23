@@ -11,4 +11,5 @@ public interface InstitutionRepository {
     Institution findByName(String name);
 
     Optional<Institution> findByDomain(String domain);
+    Optional<Institution> findById(Long id);
 }
