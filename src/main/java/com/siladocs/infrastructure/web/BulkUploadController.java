@@ -1,7 +1,7 @@
 package com.siladocs.infrastructure.web;
 
 import com.siladocs.application.service.BulkUploadService;
-import com.siladocs.infrastructure.web.dto.BulkCourseRequestDto;
+import com.siladocs.application.dto.BulkCourseRequestDto;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;

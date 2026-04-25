@@ -8,7 +8,7 @@ import com.siladocs.infrastructure.persistence.entity.CurriculumEntity;
 import com.siladocs.infrastructure.persistence.jparepository.CareerJpaRepository;
 import com.siladocs.infrastructure.persistence.jparepository.CourseJpaRepository;
 import com.siladocs.infrastructure.persistence.jparepository.CurriculumJpaRepository;
-import com.siladocs.infrastructure.web.dto.BulkCourseRequestDto;
+import com.siladocs.application.dto.BulkCourseRequestDto;
 
 // 🔹 Imports de librerías (Spring, Hashing, Logging)
 import org.apache.commons.codec.digest.DigestUtils;
