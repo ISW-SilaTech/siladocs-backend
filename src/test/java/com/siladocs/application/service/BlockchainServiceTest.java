@@ -76,7 +76,7 @@ public class BlockchainServiceTest {
     public void testRegisterSyllabusInFabric_NullCourseId() {
         // Assert
         assertThrows(BlockchainException.class, () -> {
-            blockchainService.registerSyllabusInFabric(null, "validhash" + "0".repeat(55), "email@test.com", "create");
+            blockchainService.registerSyllabusInFabric(null, "validhash" + "0".repeat(55), "email@test.com", "create", null, null, null, null, null);
         });
     }
 
@@ -85,7 +85,7 @@ public class BlockchainServiceTest {
     public void testRegisterSyllabusInFabric_InvalidHashLength() {
         // Assert - Hash debe tener 64 caracteres
         assertThrows(BlockchainException.class, () -> {
-            blockchainService.registerSyllabusInFabric("123", "tooshort", "email@test.com", "create");
+            blockchainService.registerSyllabusInFabric("123", "tooshort", "email@test.com", "create", null, null, null, null, null);
         });
     }
 
@@ -94,7 +94,7 @@ public class BlockchainServiceTest {
     public void testRegisterSyllabusInFabric_NullIssuer() {
         // Assert
         assertThrows(BlockchainException.class, () -> {
-            blockchainService.registerSyllabusInFabric("123", "a".repeat(64), null, "create");
+            blockchainService.registerSyllabusInFabric("123", "a".repeat(64), null, "create", null, null, null, null, null);
         });
     }
 
@@ -127,7 +127,7 @@ public class BlockchainServiceTest {
         // Act & Assert
         assertDoesNotThrow(() -> {
             // Si la validación pasa, no lanza excepción
-            blockchainService.registerSyllabusInFabric("123", validHash, "admin@test.com", "create");
+            blockchainService.registerSyllabusInFabric("123", validHash, "admin@test.com", "create", null, null, null, null, null);
         });
     }
 
@@ -136,7 +136,7 @@ public class BlockchainServiceTest {
     public void testValidateSha256_TooShort() {
         // Assert
         assertThrows(BlockchainException.class, () -> {
-            blockchainService.registerSyllabusInFabric("123", "abcdef", "admin@test.com", "create");
+            blockchainService.registerSyllabusInFabric("123", "abcdef", "admin@test.com", "create", null, null, null, null, null);
         });
     }
 

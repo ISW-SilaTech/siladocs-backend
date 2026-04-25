@@ -39,7 +39,6 @@ services:
     depends_on:
       - postgres
       - minio
-      - ganache # 🔹 El backend ahora depende de ganache
     environment:
       - SPRING_PROFILES_ACTIVE=docker
 
