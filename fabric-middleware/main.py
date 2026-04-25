@@ -1,4 +1,18 @@
 #!/usr/bin/env python3
+from contextlib import asynccontextmanager
+import os
+import logging
+from fastapi import FastAPI
+from fastapi.responses import JSONResponse
+import httpx
+
+# ============================================================================
+# Logging Configuration
+# ============================================================================
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
 # ============================================================================
 # Lifecycle Events
 # ============================================================================
