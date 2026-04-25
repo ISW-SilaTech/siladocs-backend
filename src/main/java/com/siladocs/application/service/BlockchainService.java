@@ -70,14 +70,15 @@ public class BlockchainService {
      * 5. Maneja errores específicos (4xx, 5xx, timeout)
      * 6. Retorna transactionId si es exitoso
      *
-     * @param courseId     ID del curso (string)
-     * @param fileHash     SHA-256 del archivo (hexadecimal)
-     * @param issuerEmail  Email del usuario (issuer de la transacción)
-     * @param action       Acción (create, update, etc.)
+     * @param courseId    ID del curso (string)
+     * @param fileHash    SHA-256 del archivo (hexadecimal)
+     * @param issuerEmail Email del usuario (issuer de la transacción)
+     * @param action      Acción (create, update, etc.)
      * @return Transaction ID de Fabric
      * @throws BlockchainException si falla por cualquier razón
      */
-    public String registerSyllabusInFabric(String courseId, String fileHash, String issuerEmail, String action) {
+    public String registerSyllabusInFabric(String courseId, String fileHash, String issuerEmail, String action,
+            String fileName, String fileType, Long fileSize, String uploaderEmail, String institutionName) {
         try {
             // ======= VALIDACIÓN DE ENTRADA =======
             validateInput(courseId, fileHash, issuerEmail, action);
@@ -91,6 +92,12 @@ public class BlockchainService {
                     .file_hash(fileHash)
                     .issuer(issuerEmail)
                     .date(LocalDate.now().format(dateFormatter))
+                    .file_name(fileName)
+                    .file_type(fileType)
+                    .file_size(fileSize)
+                    .uploader_email(uploaderEmail)
+                    .institution_name(institutionName)
+                    .action(action)
                     .build();
 
             log.debug("✉️ Payload JSON construido: {}", payload);
@@ -121,8 +128,7 @@ public class BlockchainService {
                 log.error("❌ Fabric rechazó la transacción: status={}, message={}",
                         fabricResponse.getStatus(), fabricResponse.getMessage());
                 throw new BlockchainException(
-                        "Fabric rechazó la transacción: " + fabricResponse.getMessage()
-                );
+                        "Fabric rechazó la transacción: " + fabricResponse.getMessage());
             }
 
             String txId = fabricResponse.getTxId();
@@ -142,8 +148,7 @@ public class BlockchainService {
             throw new BlockchainException(
                     "Error 4xx en Fabric: " + e.getStatusCode() + " - " + e.getMessage(),
                     e.getStatusCode().value(),
-                    e.getResponseBodyAsString()
-            );
+                    e.getResponseBodyAsString());
 
         } catch (HttpServerErrorException e) {
             // 5xx errors
@@ -151,16 +156,14 @@ public class BlockchainService {
             throw new BlockchainException(
                     "Error 5xx en Fabric: " + e.getStatusCode(),
                     e.getStatusCode().value(),
-                    e.getResponseBodyAsString()
-            );
+                    e.getResponseBodyAsString());
 
         } catch (RestClientException e) {
             // Timeout, conexión rechazada, DNS error, etc.
             log.error("❌ Error de conexión con Fabric (courseId={}): {}", courseId, e.getMessage(), e);
             throw new BlockchainException(
                     "No se pudo conectar con Fabric. ¿El middleware está activo en " + getFabricUrl() + "?",
-                    e
-            );
+                    e);
 
         } catch (BlockchainException e) {
             // Re-lanzar excepciones personalizadas
@@ -171,8 +174,7 @@ public class BlockchainService {
             log.error("❌ Error inesperado (courseId={}): {}", courseId, e.getMessage(), e);
             throw new BlockchainException(
                     "Error inesperado en BlockchainService: " + e.getMessage(),
-                    e
-            );
+                    e);
         }
     }
 
@@ -265,13 +267,12 @@ public class BlockchainService {
     private void handleFourXxError(String courseId, org.springframework.http.client.ClientHttpResponse httpResponse) {
         try {
             String errorBody = new String(httpResponse.getBody().readAllBytes());
-            log.error("❌ Error 4xx en Fabric (courseId={}): status={}, body={}", 
+            log.error("❌ Error 4xx en Fabric (courseId={}): status={}, body={}",
                     courseId, httpResponse.getStatusCode(), errorBody);
             throw new BlockchainException(
                     "Error 4xx en Fabric",
                     httpResponse.getStatusCode().value(),
-                    errorBody
-            );
+                    errorBody);
         } catch (Exception e) {
             log.error("Error leyendo respuesta 4xx: {}", e.getMessage());
             throw new BlockchainException("Error 4xx en Fabric", e);
@@ -284,13 +285,12 @@ public class BlockchainService {
     private void handleFiveXxError(String courseId, org.springframework.http.client.ClientHttpResponse httpResponse) {
         try {
             String errorBody = new String(httpResponse.getBody().readAllBytes());
-            log.error("❌ Error 5xx en Fabric (courseId={}): status={}, body={}", 
+            log.error("❌ Error 5xx en Fabric (courseId={}): status={}, body={}",
                     courseId, httpResponse.getStatusCode(), errorBody);
             throw new BlockchainException(
                     "Error 5xx en Fabric",
                     httpResponse.getStatusCode().value(),
-                    errorBody
-            );
+                    errorBody);
         } catch (Exception e) {
             log.error("Error leyendo respuesta 5xx: {}", e.getMessage());
             throw new BlockchainException("Error 5xx en Fabric", e);

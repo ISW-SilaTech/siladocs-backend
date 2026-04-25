@@ -22,7 +22,8 @@ import java.io.IOException;
 import java.time.Instant;
 
 /**
- * Servicio de Sílabos (SyllabusService) - Refactorizado para Hyperledger Fabric.
+ * Servicio de Sílabos (SyllabusService) - Refactorizado para Hyperledger
+ * Fabric.
  *
  * ARQUITECTURA (Clean Architecture):
  * ├── Layer: Application Service (SLL)
@@ -31,23 +32,23 @@ import java.time.Instant;
  *
  * FLUJO ESTRICTO DE UPLOAD (SilaDocs Fabric):
  * ┌─────────────────────────────────────────────────────┐
- * │ 1. RECIBIR ENTRADA                                  │
- * │    - courseId, MultipartFile (archivo físico)       │
+ * │ 1. RECIBIR ENTRADA │
+ * │ - courseId, MultipartFile (archivo físico) │
  * ├─────────────────────────────────────────────────────┤
- * │ 2. CALCULAR SHA-256                                 │
- * │    - Hash del contenido del archivo                 │
+ * │ 2. CALCULAR SHA-256 │
+ * │ - Hash del contenido del archivo │
  * ├─────────────────────────────────────────────────────┤
- * │ 3. SUBIR A MinIO                                   │
- * │    - StorageService.uploadFile(...)                │
- * │    - Obtener URL pública                           │
+ * │ 3. SUBIR A MinIO │
+ * │ - StorageService.uploadFile(...) │
+ * │ - Obtener URL pública │
  * ├─────────────────────────────────────────────────────┤
- * │ 4. REGISTRAR EN FABRIC (CRÍTICO) ⛓️                 │
- * │    - BlockchainService.registerSyllabusInFabric() │
- * │    - Si falla → excepción (rollback automático)    │
+ * │ 4. REGISTRAR EN FABRIC (CRÍTICO) ⛓️ │
+ * │ - BlockchainService.registerSyllabusInFabric() │
+ * │ - Si falla → excepción (rollback automático) │
  * ├─────────────────────────────────────────────────────┤
- * │ 5. PERSISTIR EN PostgreSQL                         │
- * │    - Solo si Fabric fue exitoso                    │
- * │    - @Transactional revierte TODO si falla        │
+ * │ 5. PERSISTIR EN PostgreSQL │
+ * │ - Solo si Fabric fue exitoso │
+ * │ - @Transactional revierte TODO si falla │
  * └─────────────────────────────────────────────────────┘
  */
 @Service
@@ -63,11 +64,11 @@ public class SyllabusService {
     private final UserRepository userRepo;
 
     public SyllabusService(SyllabusJpaRepository syllabusRepo,
-                           CourseJpaRepository courseRepo,
-                           BlockchainService blockchainService,
-                           StorageService storageService,
-                           SyllabusHistoryLogRepository historyRepo,
-                           UserRepository userRepo) {
+            CourseJpaRepository courseRepo,
+            BlockchainService blockchainService,
+            StorageService storageService,
+            SyllabusHistoryLogRepository historyRepo,
+            UserRepository userRepo) {
         this.syllabusRepo = syllabusRepo;
         this.courseRepo = courseRepo;
         this.blockchainService = blockchainService;
@@ -79,12 +80,12 @@ public class SyllabusService {
     /**
      * Sube un sílabo siguiendo el flujo estricto de SilaDocs Fabric.
      *
-     * @param courseId      ID del curso
-     * @param syllabusFile  Archivo del sílabo (MultipartFile)
-     * @param action        Acción (create, update, etc.)
-     * @throws BlockchainException       Si Fabric falla
-     * @throws RuntimeException          Si hay error en persistencia/storage
-     * @throws IllegalArgumentException  Si parámetros son inválidos
+     * @param courseId     ID del curso
+     * @param syllabusFile Archivo del sílabo (MultipartFile)
+     * @param action       Acción (create, update, etc.)
+     * @throws BlockchainException      Si Fabric falla
+     * @throws RuntimeException         Si hay error en persistencia/storage
+     * @throws IllegalArgumentException Si parámetros son inválidos
      */
     @Transactional
     public void uploadSyllabus(Long courseId, MultipartFile syllabusFile, String action) {
@@ -159,17 +160,20 @@ public class SyllabusService {
                         String.valueOf(courseId),
                         fileHash,
                         userEmail,
-                        action
-                );
+                        action,
+                        syllabusFile.getOriginalFilename(),
+                        syllabusFile.getContentType(),
+                        syllabusFile.getSize(),
+                        userEmail,
+                        getInstitutionNameFromUser(userEmail));
                 log.info("✅ FABRIC EXITOSO: txId={}", txId);
             } catch (BlockchainException e) {
                 // Si Fabric falla, la transacción se revierte automáticamente
                 log.error("❌ FALLO CRÍTICO EN FABRIC: {}. La transacción será revertida.", e.getMessage());
                 throw new BlockchainException(
-                        "Blockchain registró error: " + e.getMessage() + 
-                        ". Upload revertido (MinIO podría mantener copia huérfana).",
-                        e
-                );
+                        "Blockchain registró error: " + e.getMessage() +
+                                ". Upload revertido (MinIO podría mantener copia huérfana).",
+                        e);
             }
 
             // ===== PASO 9: PERSISTIR EN PostgreSQL (SOLO SI FABRIC EXITOSO) =====
@@ -182,8 +186,7 @@ public class SyllabusService {
                 // Nota: El archivo en MinIO ya existe. Considera job de limpieza
                 throw new RuntimeException(
                         "Error al guardar en BD (Fabric ya registrado): " + e.getMessage(),
-                        e
-                );
+                        e);
             }
 
             log.info("🎉 UPLOAD COMPLETO: courseId={}, version={}, hash_prefix={}",
@@ -241,8 +244,7 @@ public class SyllabusService {
                     fileBytes,
                     file.getOriginalFilename(),
                     folderPath,
-                    file.getContentType()
-            );
+                    file.getContentType());
         } catch (Exception e) {
             log.error("Error al subir a MinIO: {}", e.getMessage());
             throw new RuntimeException("Error al subir a MinIO: " + e.getMessage(), e);
@@ -259,5 +261,21 @@ public class SyllabusService {
             return "system@siladocs.com";
         }
         return auth.getName();
+    }
+        /**
+     * Obtiene el nombre de la institución del usuario autenticado.
+     */
+    private String getInstitutionNameFromUser(String userEmail) {
+        try {
+            var user = userRepo.findByEmail(userEmail);
+            if (user.isPresent() && user.get().getInstitutionId() != null) {
+                // Para esta versión, retornamos genérico
+                // En producción, integrar con InstitutionRepository
+                return "Institución-" + user.get().getInstitutionId();
+            }
+        } catch (Exception e) {
+            log.warn("No se pudo obtener institución para {}: {}", userEmail, e.getMessage());
+        }
+        return "Institución desconocida";
     }
 }
