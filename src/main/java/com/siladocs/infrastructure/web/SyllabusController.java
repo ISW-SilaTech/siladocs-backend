@@ -1,6 +1,7 @@
 package com.siladocs.infrastructure.web;
 
 import com.siladocs.application.dto.SyllabusHistoryResponse;
+import com.siladocs.application.dto.SyllabusResponse;
 import com.siladocs.application.service.BlockchainService;
 import com.siladocs.application.service.SyllabusService;
 import org.springframework.http.HttpStatus;
@@ -37,7 +38,7 @@ public class SyllabusController {
         try {
             // Llamar al servicio con la nueva firma: (courseId, file, action)
             syllabusService.uploadSyllabus(courseId, file, action);
-            
+
             // Retornar respuesta de éxito
             return ResponseEntity.status(HttpStatus.CREATED)
                     .body(Map.of("message", "Sílabo registrado exitosamente", "courseId", courseId));
@@ -46,6 +47,17 @@ public class SyllabusController {
             log.error("Error FATAL en la subida del sílabo: {}", e.getMessage(), e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    @GetMapping
+    public ResponseEntity<List<SyllabusResponse>> getAllSyllabi() {
+        try {
+            List<SyllabusResponse> syllabi = syllabusService.getAllSyllabi();
+            return ResponseEntity.ok(syllabi);
+        } catch (Exception e) {
+            log.error("Error fetching all syllabi: {}", e.getMessage(), e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
         }
     }
 

@@ -1,5 +1,6 @@
 package com.siladocs.application.service;
 
+import com.siladocs.application.dto.SyllabusResponse;
 import com.siladocs.application.exception.BlockchainException;
 import com.siladocs.domain.model.User;
 import com.siladocs.domain.repository.UserRepository;
@@ -20,6 +21,8 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
 import java.time.Instant;
+import java.util.List;
+import java.util.stream.Collectors;
 
 /**
  * Servicio de Sílabos (SyllabusService) - Refactorizado para Hyperledger
@@ -277,5 +280,29 @@ public class SyllabusService {
             log.warn("No se pudo obtener institución para {}: {}", userEmail, e.getMessage());
         }
         return "Institución desconocida";
+    }
+
+    /**
+     * Obtiene todos los sílabos con la información del curso asociado.
+     */
+    public List<SyllabusResponse> getAllSyllabi() {
+        try {
+            return syllabusRepo.findAll().stream()
+                    .map(syllabus -> new SyllabusResponse(
+                            syllabus.getId(),
+                            syllabus.getCourse().getId(),
+                            syllabus.getCourse().getName(),
+                            syllabus.getCourse().getCode(),
+                            syllabus.getFileUrl(),
+                            0L, // fileSize not stored, default to 0
+                            syllabus.getCurrentHash(),
+                            syllabus.getStatus(),
+                            syllabus.getCreatedAt()
+                    ))
+                    .collect(Collectors.toList());
+        } catch (Exception e) {
+            log.error("Error al obtener todos los sílabos: {}", e.getMessage(), e);
+            throw new RuntimeException("Error al obtener sílabos: " + e.getMessage(), e);
+        }
     }
 }
