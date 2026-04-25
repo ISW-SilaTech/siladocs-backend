@@ -5,6 +5,3 @@ public record AuthResponse(
     AuthUserDto user,
     AuthInstitutionDto institution
 ) {}
-
-public record AuthUserDto(String id, String email, String role) {}
-public record AuthInstitutionDto(String id, String name) {}
