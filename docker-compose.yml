@@ -32,16 +32,6 @@ services:
     volumes:
       - minio-data:/data
 
-  ganache:
-    image: trufflesuite/ganache:latest
-    container_name: ganache-node
-    ports:
-      - "8545:8545"
-    # ⬇️ 🔹 CORRECCIÓN CLAVE: Añade el flag '--database.dbPath /data' 🔹
-    command: --host 0.0.0.0 --networkId 5777 --database.dbPath "/data" --account="0xdbda1821b80551c9d65a12bab3ea220fde05956e8c7c11a30f7850e00885ff44,10000000000000000000000"
-    volumes:
-      - ganache_data:/data # Esto ya estaba bien
-
   backend:
     build: .
     ports:
@@ -56,4 +46,3 @@ services:
 volumes:
   pgdata:
   minio-data:
-  ganache_data: # 🔹 CORREGIDO: Volumen de ganache definido

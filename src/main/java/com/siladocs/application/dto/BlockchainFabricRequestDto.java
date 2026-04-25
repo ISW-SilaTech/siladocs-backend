@@ -41,4 +41,34 @@ public class BlockchainFabricRequestDto {
      * Fecha de registro en formato YYYY-MM-DD
      */
     private String date;
+
+        /**
+     * Nombre del archivo del documento
+     */
+    private String file_name;
+
+    /**
+     * Tipo MIME del documento
+     */
+    private String file_type;
+
+    /**
+     * Tamaño del archivo en bytes
+     */
+    private Long file_size;
+
+    /**
+     * Email del usuario que sube el documento
+     */
+    private String uploader_email;
+
+    /**
+     * Nombre de la institución (desde AuthController)
+     */
+    private String institution_name;
+
+    /**
+     * Acción: create, update, delete
+     */
+    private String action;
 }
