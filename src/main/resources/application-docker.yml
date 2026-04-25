@@ -2,6 +2,10 @@
 # CONFIGURACIÓN UNIFICADA DEL PERFIL DE DOCKER
 # ===================================================
 
+server:
+  servlet:
+    context-path: /api
+
 spring:
   # 1. CONEXIÓN A POSTGRES
   datasource:

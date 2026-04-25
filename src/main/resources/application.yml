@@ -1,3 +1,7 @@
+server:
+  servlet:
+    context-path: /api
+
 spring:
   # Configuración de JPA (es común a todos los entornos)
   jpa:
