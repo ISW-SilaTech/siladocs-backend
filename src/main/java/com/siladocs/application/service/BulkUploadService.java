@@ -40,10 +40,10 @@ public class BulkUploadService {
 
     // 🔹 ----- CONSTRUCTOR ACTUALIZADO ----- 🔹
     public BulkUploadService(CareerJpaRepository careerRepository,
-                             CurriculumJpaRepository curriculumRepository,
-                             CourseJpaRepository courseRepository,
-                             BlockchainService blockchainService,
-                             UserRepository userRepository) {
+            CurriculumJpaRepository curriculumRepository,
+            CourseJpaRepository courseRepository,
+            BlockchainService blockchainService,
+            UserRepository userRepository) {
         this.careerRepository = careerRepository;
         this.curriculumRepository = curriculumRepository;
         this.courseRepository = courseRepository;
@@ -62,7 +62,8 @@ public class BulkUploadService {
 
         // 🔹 ----- LÓGICA DE PRE-FETCH (COMPLETADA) ----- 🔹
         Map<String, CareerEntity> careersByName = careerRepository.findAll().stream()
-                .collect(Collectors.toMap(CareerEntity::getName, c -> c, (c1, c2) -> c1)); // Maneja duplicados si existen
+                .collect(Collectors.toMap(CareerEntity::getName, c -> c, (c1, c2) -> c1)); // Maneja duplicados si
+                                                                                           // existen
         Map<String, CurriculumEntity> curriculumsByName = curriculumRepository.findAll().stream()
                 .collect(Collectors.toMap(CurriculumEntity::getName, m -> m, (m1, m2) -> m1));
 
@@ -87,7 +88,8 @@ public class BulkUploadService {
 
                 // 3. Validar Consistencia
                 if (!curriculum.getCareer().getId().equals(career.getId())) {
-                    throw new IllegalArgumentException("La Malla '" + req.getMalla() + "' no pertenece a la Carrera '" + req.getCarrera() + "'");
+                    throw new IllegalArgumentException(
+                            "La Malla '" + req.getMalla() + "' no pertenece a la Carrera '" + req.getCarrera() + "'");
                 }
 
                 // 4. Validar Ciclo
@@ -98,14 +100,16 @@ public class BulkUploadService {
                         throw new NumberFormatException();
                     }
                 } catch (NumberFormatException e) {
-                    throw new IllegalArgumentException("Ciclo inválido: '" + req.getCiclo() + "'. Debe ser un número entre 1 y " + career.getCycles());
+                    throw new IllegalArgumentException("Ciclo inválido: '" + req.getCiclo()
+                            + "'. Debe ser un número entre 1 y " + career.getCycles());
                 }
 
                 // 5. Validar Duplicados (Curso)
                 boolean exists = courseRepository.findByCurriculumId(curriculum.getId()).stream()
                         .anyMatch(course -> course.getName().equalsIgnoreCase(req.getCurso()));
                 if (exists) {
-                    log.warn("Fila {}: El curso '{}' ya existe en la malla '{}'. Omitiendo.", rowNum, req.getCurso(), req.getMalla());
+                    log.warn("Fila {}: El curso '{}' ya existe en la malla '{}'. Omitiendo.", rowNum, req.getCurso(),
+                            req.getMalla());
                     continue; // Saltar al siguiente registro
                 }
 
@@ -115,14 +119,14 @@ public class BulkUploadService {
                 newCourse.setCurriculum(curriculum);
                 newCourse.setCareer(career);
                 newCourse.setFaculty(career.getFaculty()); // Hereda facultad de la carrera
-                newCourse.setYear(curriculum.getYear());   // Hereda año de la malla
+                newCourse.setYear(curriculum.getYear()); // Hereda año de la malla
                 newCourse.setStatus("Active"); // Default
                 newCourse.setSyllabusCount(0); // Default
                 newCourse.setPublicationDate(LocalDate.now()); // Default
 
                 // 7. Generar Código
                 String generatedCode = generateCourseCode(career.getName(), req.getCurso(), cycleNumber);
-                if(courseRepository.existsByCode(generatedCode)){
+                if (courseRepository.existsByCode(generatedCode)) {
                     log.warn("Fila {}: Código generado '{}' ya existe. Omitiendo.", rowNum, generatedCode);
                     continue;
                 }
@@ -138,12 +142,19 @@ public class BulkUploadService {
                     String txHash = blockchainService.registerSyllabusInFabric(
                             newCourse.getId().toString(),
                             dataHash,
-                            userEmail, // ⬅️ Usa el email pasado como parámetro
-                            "CURSO_CREADO (MASIVO)"
+                            userEmail,
+                            "CURSO_CREADO (MASIVO)",
+                            null, // fileName (no aplica para cursos)
+                            null, // fileType
+                            null, // fileSize
+                            userEmail, // uploaderEmail
+                            "Institución desconocida" // institutionName
                     );
-                    log.info("Fila {} (Curso ID {}): Registrado en Blockchain (Tx: {})", rowNum, newCourse.getId(), txHash);
+                    log.info("Fila {} (Curso ID {}): Registrado en Blockchain (Tx: {})", rowNum, newCourse.getId(),
+                            txHash);
                 } catch (Exception e) {
-                    log.error("Fila {}: Curso guardado en SQL (ID {}) pero ¡FALLÓ registro en Blockchain!: {}", rowNum, newCourse.getId(), e.getMessage());
+                    log.error("Fila {}: Curso guardado en SQL (ID {}) pero ¡FALLÓ registro en Blockchain!: {}", rowNum,
+                            newCourse.getId(), e.getMessage());
                     // Lanzamos la excepción para revertir la creación del curso en SQL
                     throw new RuntimeException("Error en Blockchain para Fila " + rowNum + ", revirtiendo.", e);
                 }
@@ -164,12 +175,15 @@ public class BulkUploadService {
 
     // 🔹 ----- MÉTODO HELPER (AÑADIDO) ----- 🔹
     private String generateCourseCode(String careerName, String courseName, int cycle) {
-        String careerPrefix = careerName.length() >= 3 ? careerName.substring(0, 3).toUpperCase() : careerName.toUpperCase();
-        String coursePrefix = courseName.length() >= 3 ? courseName.substring(0, 3).toUpperCase() : courseName.toUpperCase();
+        String careerPrefix = careerName.length() >= 3 ? careerName.substring(0, 3).toUpperCase()
+                : careerName.toUpperCase();
+        String coursePrefix = courseName.length() >= 3 ? courseName.substring(0, 3).toUpperCase()
+                : courseName.toUpperCase();
         // Añade número aleatorio para reducir colisiones
-        return careerPrefix + cycle + coursePrefix + (int)(Math.random() * 100);
+        return careerPrefix + cycle + coursePrefix + (int) (Math.random() * 100);
     }
 
     // 🔹 ----- RECORD (YA ESTABA BIEN) ----- 🔹
-    public record BulkUploadResult(int successCount, List<String> errors) {}
+    public record BulkUploadResult(int successCount, List<String> errors) {
+    }
 }

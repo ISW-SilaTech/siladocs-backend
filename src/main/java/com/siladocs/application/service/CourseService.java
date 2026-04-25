@@ -34,10 +34,10 @@ public class CourseService {
     private final UserRepository userRepository;
 
     public CourseService(CourseJpaRepository courseRepository,
-                         CurriculumJpaRepository curriculumRepository,
-                         CareerJpaRepository careerRepository,
-                         BlockchainService blockchainService,
-                         UserRepository userRepository) {
+            CurriculumJpaRepository curriculumRepository,
+            CareerJpaRepository careerRepository,
+            BlockchainService blockchainService,
+            UserRepository userRepository) {
         this.courseRepository = courseRepository;
         this.curriculumRepository = curriculumRepository;
         this.careerRepository = careerRepository;
@@ -50,7 +50,8 @@ public class CourseService {
         log.info("Creando curso con código '{}' para curriculum ID {}", request.code(), request.curriculumId());
 
         CurriculumEntity curriculum = curriculumRepository.findById(request.curriculumId())
-                .orElseThrow(() -> new EntityNotFoundException("Curriculum not found with ID: " + request.curriculumId()));
+                .orElseThrow(
+                        () -> new EntityNotFoundException("Curriculum not found with ID: " + request.curriculumId()));
         CareerEntity career = careerRepository.findById(request.careerId())
                 .orElseThrow(() -> new EntityNotFoundException("Career not found with ID: " + request.careerId()));
 
@@ -85,7 +86,12 @@ public class CourseService {
                     savedEntity.getId().toString(),
                     dataHash,
                     userEmail,
-                    "CURSO_CREADO"
+                    "CURSO_CREADO",
+                    null, // fileName
+                    null, // fileType
+                    null, // fileSize
+                    userEmail, // uploaderEmail
+                    "Institución desconocida" // institutionName
             );
             log.info("Curso {} registrado en Blockchain. TxHash: {}", savedEntity.getId(), txHash);
 
@@ -126,7 +132,8 @@ public class CourseService {
                 .orElseThrow(() -> new EntityNotFoundException("Course not found with ID: " + id));
 
         CurriculumEntity curriculum = curriculumRepository.findById(request.curriculumId())
-                .orElseThrow(() -> new EntityNotFoundException("Curriculum not found with ID: " + request.curriculumId()));
+                .orElseThrow(
+                        () -> new EntityNotFoundException("Curriculum not found with ID: " + request.curriculumId()));
         CareerEntity career = careerRepository.findById(request.careerId())
                 .orElseThrow(() -> new EntityNotFoundException("Career not found with ID: " + request.careerId()));
 
@@ -160,7 +167,12 @@ public class CourseService {
                     updatedEntity.getId().toString(),
                     dataHash,
                     userEmail,
-                    "CURSO_ACTUALIZADO"
+                    "CURSO_ACTUALIZADO",
+                    null, // fileName
+                    null, // fileType
+                    null, // fileSize
+                    userEmail, // uploaderEmail
+                    "Institución desconocida" // institutionName
             );
             log.info("Actualización de Curso {} registrada en Blockchain. TxHash: {}", updatedEntity.getId(), txHash);
 
@@ -186,7 +198,12 @@ public class CourseService {
                     id.toString(),
                     dataHash,
                     userEmail,
-                    "CURSO_ELIMINADO"
+                    "CURSO_ELIMINADO",
+                    null, // fileName
+                    null, // fileType
+                    null, // fileSize
+                    userEmail, // uploaderEmail
+                    "Institución desconocida" // institutionName
             );
             log.info("Eliminación de Curso {} registrada en Blockchain. TxHash: {}", id, txHash);
 
@@ -203,7 +220,8 @@ public class CourseService {
     private String getAuthenticatedUserEmail() {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
 
-        // Comprueba si la autenticación es nula, no está autenticada, o es el "usuario anónimo"
+        // Comprueba si la autenticación es nula, no está autenticada, o es el "usuario
+        // anónimo"
         if (authentication == null ||
                 !authentication.isAuthenticated() ||
                 "anonymousUser".equals(authentication.getPrincipal())) {
@@ -241,7 +259,6 @@ public class CourseService {
                 entity.getYear(),
                 entity.getStatus(),
                 mallaStatus,
-                entity.getPublicationDate()
-        );
+                entity.getPublicationDate());
     }
 }
