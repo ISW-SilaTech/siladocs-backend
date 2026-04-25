@@ -90,11 +90,17 @@ public class AuthController {
         User user = userRepo.findByEmail(request.email())
                 .orElseThrow(() -> new RuntimeException("Usuario no encontrado"));
 
+        String institutionName = "Institución sin asignar";
+        if (user.getInstitutionId() != null) {
+            institutionName = institutionRepo.findById(user.getInstitutionId())
+                    .map(inst -> inst.getName())
+                    .orElse("Institución no encontrada");
+        }
+
         AuthResponse response = new AuthResponse(
                 token,
-                user.getEmail(),
-                user.getRole(),
-                user.getInstitutionId()
+                new AuthUserDto(user.getUserId().toString(), user.getEmail(), user.getRole()),
+                new AuthInstitutionDto(user.getInstitutionId() != null ? user.getInstitutionId().toString() : "", institutionName)
         );
 
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
@@ -146,8 +152,17 @@ public class AuthController {
             User user = userRepo.findByEmail(request.email())
                     .orElseThrow(() -> new RuntimeException("Usuario no encontrado"));
 
+            String institutionName = "Institución sin asignar";
+            if (user.getInstitutionId() != null) {
+                institutionName = institutionRepo.findById(user.getInstitutionId())
+                        .map(inst -> inst.getName())
+                        .orElse("Institución no encontrada");
+            }
+
             AuthResponse response = new AuthResponse(
-                    token, user.getEmail(), user.getRole(), user.getInstitutionId()
+                    token,
+                    new AuthUserDto(user.getUserId().toString(), user.getEmail(), user.getRole()),
+                    new AuthInstitutionDto(user.getInstitutionId() != null ? user.getInstitutionId().toString() : "", institutionName)
             );
 
             return ResponseEntity.ok(response);
