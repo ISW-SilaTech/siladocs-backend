@@ -5,7 +5,7 @@
 
 -- 1. Creamos la tabla explícitamente con Flyway
 CREATE TABLE IF NOT EXISTS access_codes (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    id UUID PRIMARY KEY,
     code VARCHAR(255) UNIQUE NOT NULL,
     institution_name VARCHAR(255) NOT NULL,
     expires_at TIMESTAMP NOT NULL,
