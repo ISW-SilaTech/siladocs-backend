@@ -41,4 +41,4 @@ COPY --from=builder /app/target/siladocs-backend.jar siladocs-backend.jar
 EXPOSE 8080
 
 # Ejecutar con el perfil docker (tu comando original está perfecto)
-ENTRYPOINT ["dockerize", "-wait", "tcp://postgres:5432", "-timeout", "30s", "--", "java", "-jar", "siladocs-backend.jar", "--spring.profiles.active=docker"]
+ENTRYPOINT ["dockerize", "-wait", "tcp://postgres:5432", "-timeout", "30s", "--", "java", "-jar", "siladocs-backend.jar", "--spring.profiles.active=fabric"]

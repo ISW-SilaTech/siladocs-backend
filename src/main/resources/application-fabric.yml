@@ -56,7 +56,7 @@ blockchain:
       # URL del middleware Python (FastAPI) que se comunica con Hyperledger Fabric
       # En desarrollo local: http://127.0.0.1:8000
       # En producción: configurar con variable de entorno
-      url: ${FABRIC_API_URL:http://127.0.0.1:8000}
+      url: ${FABRIC_API_URL:http://fabric-middleware:8000}
 
       # Timeouts para las solicitudes HTTP
       timeout:

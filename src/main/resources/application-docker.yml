@@ -51,13 +51,11 @@ app:
   frontend:
     reset-url: http://localhost:3000/authentication/reset-password/basic/
 
-# 7. CONFIGURACIÓN BLOCKCHAIN (GANACHE)
+# 7. CONFIGURACIÓN BLOCKCHAIN (FABRIC - MIDDLEWARE)
 blockchain:
-  node:
-    url: http://ganache:8545
-  admin:
-    # ⬇️ 🔹 CORRECCIÓN CLAVE: Añade comillas a la llave 🔹
-    private-key: "0xdbda1821b80551c9d65a12bab3ea220fde05956e8c7c11a30f7850e00885ff44"
-  contract:
-    # 🔹 (Opcional) Añade comillas aquí también por si acaso
-    address: "0x385042b6D980C82D11c0CC16941699eD633317Bf"
+  fabric:
+    api:
+      url: http://fabric-middleware:8000
+      timeout:
+        connect: 10000
+        read: 30000
