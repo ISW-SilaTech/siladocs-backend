@@ -1,6 +1,8 @@
 package com.siladocs.application.controller;
 
 import com.siladocs.application.dto.AuthResponse;
+import com.siladocs.application.dto.AuthUserDto;
+import com.siladocs.application.dto.AuthInstitutionDto;
 import com.siladocs.application.dto.LoginRequest;
 import com.siladocs.application.dto.RegisterRequest;
 import com.siladocs.application.dto.ValidateCodeRequest;
