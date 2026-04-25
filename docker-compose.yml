@@ -44,7 +44,7 @@ services:
     build:
       context: ./fabric-middleware
       dockerfile: Dockerfile
-    container_name: fabric-middleware
+    container_name: siladocs-fabric-middleware
     ports:
       - "8000:8000"
     environment:

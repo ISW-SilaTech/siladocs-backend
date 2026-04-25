@@ -13,9 +13,9 @@ spring:
       hibernate:
         dialect: org.hibernate.dialect.PostgreSQLDialect
 
-  # Configuración de datasource PostgreSQL
+  # Configuración de datasource PostgreSQL (Docker)
   datasource:
-    url: jdbc:postgresql://localhost:5432/siladocs
+    url: jdbc:postgresql://postgres:5432/siladocs
     username: siladocs
     password: siladocs
     driver-class-name: org.postgresql.Driver
@@ -40,12 +40,24 @@ spring:
             enable: false
 
 # ============================================================================
-# Configuración de JWT
+# Configuración de JWT y Almacenamiento
 # ============================================================================
 siladocs:
   jwt:
     secret: ${JWT_SECRET:change_this_secret_for_dev_please_replace}
     expiration-ms: 86400000  # 24 horas
+
+  # Configuración de almacenamiento MinIO
+  storage:
+    endpoint: http://minio:9000
+    access-key: minioadmin
+    secret-key: minioadmin
+    bucket: siladocs
+
+# Configuración de Frontend
+app:
+  frontend:
+    reset-url: http://localhost:3000/reset-password
 
 # ============================================================================
 # Configuración de Blockchain - Hyperledger Fabric
@@ -53,23 +65,16 @@ siladocs:
 blockchain:
   fabric:
     api:
-      # URL del middleware Python (FastAPI) que se comunica con Hyperledger Fabric
-      # En desarrollo local: http://127.0.0.1:8000
-      # En producción: configurar con variable de entorno
       url: ${FABRIC_API_URL:http://fabric-middleware:8000}
-
-      # Timeouts para las solicitudes HTTP
       timeout:
-        # Timeout de conexión (ms)
         connect: ${FABRIC_CONNECT_TIMEOUT:10000}
-        # Timeout de lectura (ms)
         read: ${FABRIC_READ_TIMEOUT:30000}
 
 # ============================================================================
 # Configuración de MinIO (Almacenamiento de archivos)
 # ============================================================================
 minio:
-  endpoint: ${MINIO_ENDPOINT:http://127.0.0.1:9005}
+  endpoint: ${MINIO_ENDPOINT:http://minio:9000}
   access-key: ${MINIO_ACCESS_KEY:minioadmin}
   secret-key: ${MINIO_SECRET_KEY:minioadmin}
   bucket-name: ${MINIO_BUCKET:syllabi}
