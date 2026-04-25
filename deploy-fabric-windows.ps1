@@ -7,7 +7,7 @@
 param(
     [string]$VMIp = "20.38.34.192",
     [string]$VMUser = "azureuser",
-    [string]$SSHKeyPath = "$HOME\.ssh\fabric-vm-key.pem"
+    [string]$SSHKeyPath = "$HOME\.ssh\fabric-vm-key2.pem"
 )
 
 # Colores
