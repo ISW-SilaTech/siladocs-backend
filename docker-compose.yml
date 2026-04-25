@@ -83,3 +83,12 @@ volumes:
 networks:
   siladocs-network:
     driver: bridge
+
+# Agregar en docker-compose.yml
+  fabric-network:
+    build:
+      context: ./fabric-network/fabric-samples/test-network
+    environment:
+      - COMPOSE_PROJECT_NAME=fabric
+    networks:
+      - siladocs-network
