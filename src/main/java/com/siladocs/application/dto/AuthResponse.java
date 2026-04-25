@@ -6,5 +6,5 @@ public record AuthResponse(
     AuthInstitutionDto institution
 ) {}
 
-record AuthUserDto(String id, String email, String role) {}
-record AuthInstitutionDto(String id, String name) {}
+public record AuthUserDto(String id, String email, String role) {}
+public record AuthInstitutionDto(String id, String name) {}
