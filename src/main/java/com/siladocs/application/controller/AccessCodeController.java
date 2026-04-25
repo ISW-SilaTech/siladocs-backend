@@ -9,7 +9,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
-@RequestMapping("/api/access-codes")
+@RequestMapping("/access-codes")
 public class AccessCodeController {
 
     private final AccessCodeService accessCodeService;

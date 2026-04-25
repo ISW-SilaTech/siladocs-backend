@@ -13,7 +13,7 @@ import org.springframework.web.multipart.MultipartFile;
 import java.util.List;
 
 @RestController
-@RequestMapping("/api/documents")
+@RequestMapping("/documents")
 @Tag(name = "Documents", description = "Endpoints para gestión de documentos")
 @RequiredArgsConstructor
 public class DocumentController {
