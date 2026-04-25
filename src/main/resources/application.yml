@@ -21,7 +21,7 @@ spring:
 # Configuración de JWT (es común)
 siladocs:
   jwt:
-    secret: change_this_secret_for_dev_please_replace
+    secret: ${JWT_SECRET:siladocs-jwt-secret-key-2024-minimum-32-bytes-long-secure}
     expiration-ms: 86400000
   
   # Configuración de almacenamiento MinIO
