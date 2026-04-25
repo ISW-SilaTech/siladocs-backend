@@ -10,7 +10,7 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 
 @RestController
-@RequestMapping("/api/institutions") // ⬅️ ¡Aquí está la URL base!
+@RequestMapping("/institutions") // ⬅️ ¡Aquí está la URL base!
 public class InstitutionController {
 
     private final InstitutionService institutionService;

@@ -13,7 +13,7 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 
 @RestController
-@RequestMapping("/api/courses") // Base URL for courses
+@RequestMapping("/courses") // Base URL for courses
 public class CourseController {
 
     private static final Logger log = LoggerFactory.getLogger(CourseController.class);

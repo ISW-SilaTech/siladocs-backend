@@ -9,7 +9,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 @RestController // <-- Marca como controlador REST
-@RequestMapping("/api/contact")
+@RequestMapping("/contact")
 public class ContactController {
 
     private static final Logger log = LoggerFactory.getLogger(ContactController.class);

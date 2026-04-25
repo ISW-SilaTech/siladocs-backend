@@ -15,7 +15,7 @@ import java.util.List;
 import java.util.Map;
 
 @RestController
-@RequestMapping("/api/syllabi")
+@RequestMapping("/syllabi")
 public class SyllabusController {
 
     private static final Logger log = LoggerFactory.getLogger(SyllabusController.class);

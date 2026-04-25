@@ -13,7 +13,7 @@ import java.util.List;
 import java.util.Map; // 🔹 Importar
 
 @RestController
-@RequestMapping("/api/bulk-upload") // Base URL for bulk operations
+@RequestMapping("/bulk-upload") // Base URL for bulk operations
 public class BulkUploadController {
 
     private static final Logger log = LoggerFactory.getLogger(BulkUploadController.class);

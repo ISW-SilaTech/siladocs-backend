@@ -11,7 +11,7 @@ record UpdateProfileRequest(String name) {}
 record ProfileResponse(String name, String email, String role, Long institutionId) {}
 
 @RestController
-@RequestMapping("/api/profile")
+@RequestMapping("/profile")
 public class UserProfileController { // Nota: Nombre cambiado de "ProfileController"
 
     private final ProfileService profileService;

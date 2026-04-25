@@ -100,10 +100,10 @@ public class SecurityConfig {
                                 "/v3/api-docs/**",
                                 "/swagger-ui/**",
                                 "/swagger-ui.html",
-                                "/api/institutions/**",
-                                "/api/access-codes/**",
-                                "/api/institutions",
-                                "/api/access-codes"
+                                "/institutions/**",
+                                "/access-codes/**",
+                                "/institutions",
+                                "/access-codes"
                         ).permitAll()
                         .anyRequest().authenticated()
                 )

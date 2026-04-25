@@ -13,7 +13,7 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 
 @RestController
-@RequestMapping("/api/careers") // URL base para carreras
+@RequestMapping("/careers") // URL base para carreras
 public class CareerController {
 
     private static final Logger log = LoggerFactory.getLogger(CareerController.class);

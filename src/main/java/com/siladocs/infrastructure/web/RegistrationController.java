@@ -7,7 +7,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
-@RequestMapping("/api/registro") // La URL base
+@RequestMapping("/registro") // La URL base
 public class RegistrationController {
 
     // 🔹 Inyecta AuthService, que contiene la lógica de 'registerAdmin'
