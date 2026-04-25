@@ -34,7 +34,6 @@ public class BlockchainConfig {
         return RestClient.builder()
                 .baseUrl(fabricApiUrl)
                 .defaultHeader("Content-Type", "application/json")
-                .requestFactory(new org.springframework.http.client.JdkClientHttpRequestFactory())
                 .build();
     }
 
