@@ -13,7 +13,7 @@ import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
 @EntityScan(basePackages = { 
         "com.siladocs.domain.model",
         "com.siladocs.infrastructure.persistence.entity",
-        "com.siladocs.domain.entity" // ⬅️ ¡ESTE ES EL PAQUETE QUE FALTABA!
+        "com.siladocs.domain.entity"
 })
 public class SiladocsBackendApplication {
     public static void main(String[] args) {
