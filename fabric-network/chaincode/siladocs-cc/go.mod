@@ -1,9 +1,6 @@
 module siladocs-chaincode
-
 go 1.20
-
 require github.com/hyperledger/fabric-contract-api-go v1.2.0
-
 require (
 	github.com/golang/protobuf v1.5.3 // indirect
 	github.com/hyperledger/fabric-protos-go v0.3.0 // indirect

@@ -1,7 +1,7 @@
 version: '3.8'
 
 services:
-  # Certificate Authority
+  # Certificate Authority (CA)
   ca.siladocs.com:
     image: hyperledger/fabric-ca:latest
     container_name: ca.siladocs.com
@@ -9,17 +9,35 @@ services:
       - FABRIC_CA_HOME=/etc/hyperledger/fabric-ca-server
       - FABRIC_CA_SERVER_CA_NAME=ca-siladocs
       - FABRIC_CA_SERVER_PORT=7054
-      - FABRIC_CA_SERVER_CA_CERTFILE=/etc/hyperledger/fabric-ca-server/ca-cert.pem
-      - FABRIC_CA_SERVER_CA_KEYFILE=/etc/hyperledger/fabric-ca-server/ca-key.pem
     ports:
       - "7054:7054"
     volumes:
       - ca-volume:/etc/hyperledger/fabric-ca-server
     networks:
       - siladocs-fabric
-    command: sh -c 'fabric-ca-server start -b admin:adminpw'
 
-  # CouchDB
+  # Orderer
+  orderer.siladocs.com:
+    image: hyperledger/fabric-orderer:latest
+    container_name: orderer.siladocs.com
+    environment:
+      - FABRIC_LOGGING_SPEC=INFO
+      - ORDERER_GENERAL_LISTENADDRESS=0.0.0.0
+      - ORDERER_GENERAL_LISTENPORT=7050
+      - ORDERER_GENERAL_GENESISMETHOD=file
+      - ORDERER_GENERAL_GENESISFILE=/var/hyperledger/orderer/orderer.genesis.block
+      - ORDERER_GENERAL_LOCALMSPID=OrdererMSP
+      - ORDERER_GENERAL_LOCALMSPDIR=/var/hyperledger/orderer/msp
+    ports:
+      - "7050:7050"
+    volumes:
+      - orderer-volume:/var/hyperledger/orderer
+    networks:
+      - siladocs-fabric
+    depends_on:
+      - ca.siladocs.com
+
+  # CouchDB for Peer
   couchdb:
     image: couchdb:latest
     container_name: couchdb
@@ -33,34 +51,12 @@ services:
     networks:
       - siladocs-fabric
 
-  # Orderer (usando SoloOrderer - sin raft, para MVP)
-  orderer.siladocs.com:
-    image: hyperledger/fabric-orderer:latest
-    container_name: orderer.siladocs.com
-    environment:
-      - ORDERER_GENERAL_LISTENADDRESS=0.0.0.0
-      - ORDERER_GENERAL_LISTENPORT=7050
-      - ORDERER_GENERAL_GENESISMETHOD=none
-      - ORDERER_GENERAL_LOCALMSPID=OrdererOrg
-      - ORDERER_GENERAL_LOCALMSPDIR=/var/hyperledger/orderer/msp
-      - ORDERER_CHANNELPARTICIPATION_ENABLED=true
-      - ORDERER_ADMIN_LISTENADDRESS=0.0.0.0:9443
-    ports:
-      - "7050:7050"
-      - "9443:9443"
-    volumes:
-      - orderer-volume:/var/hyperledger/production/orderer
-      - ./msp/orderer:/var/hyperledger/orderer/msp
-    networks:
-      - siladocs-fabric
-    depends_on:
-      - ca.siladocs.com
-
   # Peer0 Org1
   peer0.org1.siladocs.com:
     image: hyperledger/fabric-peer:latest
     container_name: peer0.org1.siladocs.com
     environment:
+      - FABRIC_LOGGING_SPEC=INFO
       - CORE_VM_ENDPOINT=unix:///host/var/run/docker.sock
       - CORE_VM_DOCKER_HOSTCONFIG_NETWORKMODE=fabric-network_siladocs-fabric
       - CORE_PEER_ID=peer0.org1.siladocs.com
@@ -70,8 +66,8 @@ services:
       - CORE_PEER_CHAINCODELISTENADDRESS=0.0.0.0:7052
       - CORE_PEER_GOSSIP_BOOTSTRAP=peer0.org1.siladocs.com:7051
       - CORE_PEER_GOSSIP_EXTERNALENDPOINT=peer0.org1.siladocs.com:7051
-      - CORE_PEER_LOCALMSPID=Org1
-      - CORE_PEER_MSPCONFIGPATH=/etc/hyperledger/msp/peer
+      - CORE_PEER_LOCALMSPID=Org1MSP
+      - CORE_PEER_MSPCONFIGPATH=/etc/hyperledger/msp/peer/
       - CORE_LEDGER_STATE_STATEDATABASE=CouchDB
       - CORE_LEDGER_STATE_COUCHDBCONFIG_COUCHDBADDRESS=couchdb:5984
       - CORE_LEDGER_STATE_COUCHDBCONFIG_USERNAME=admin
@@ -82,12 +78,12 @@ services:
     volumes:
       - /var/run/docker.sock:/host/var/run/docker.sock
       - peer-volume:/var/hyperledger/production
-      - ./msp/peer:/etc/hyperledger/msp/peer
     networks:
       - siladocs-fabric
     depends_on:
-      - couchdb
+      - ca.siladocs.com
       - orderer.siladocs.com
+      - couchdb
 
 volumes:
   ca-volume:

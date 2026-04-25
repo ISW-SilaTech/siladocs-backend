@@ -1,224 +1,208 @@
-"""
-SilaDocs Fabric Middleware
-API REST para comunicación entre Spring Boot Backend y Hyperledger Fabric
-"""
-
-from fastapi import FastAPI, HTTPException, status
-from pydantic import BaseModel
-from typing import Optional
-import logging
-import json
-from datetime import datetime
-import uuid
-import os
-from dotenv import load_dotenv
-
-# Cargar variables de entorno
-load_dotenv()
-
-# Configurar logging
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
-
+#!/usr/bin/env python3
 # ============================================================================
-# MODELOS (DTOs)
+# Lifecycle Events
 # ============================================================================
 
-class FabricRequest(BaseModel):
-    """Payload recibido del Backend Spring"""
-    curso_id: str
-    file_hash: str
-    issuer: str
-    date: str
-    file_name: Optional[str] = None
-    file_type: Optional[str] = None
-    file_size: Optional[int] = None
-    uploader_email: Optional[str] = None
-    institution_name: Optional[str] = None
-    action: str = "create"
-
-
-class FabricResponse(BaseModel):
-    """Respuesta enviada al Backend Spring"""
-    status: str  # "success" o "error"
-    message: str
-    txId: Optional[str] = None
-    timestamp: Optional[str] = None
-    successful: bool = False
-
-
-class HealthResponse(BaseModel):
-    """Health check response"""
-    status: str
-    fabric_connected: bool
-    timestamp: str
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Startup
+    logger.info("🚀 SilaDocs Fabric Middleware starting...")
+    logger.info("📡 Fabric API URL: %s", os.getenv("FABRIC_API_URL", "http://localhost:8000"))
+    yield
+    # Shutdown
+    logger.info("🛑 SilaDocs Fabric Middleware shutting down...")
 
 
 # ============================================================================
-# APLICACIÓN FASTAPI
+# FastAPI Application
 # ============================================================================
 
 app = FastAPI(
     title="SilaDocs Fabric Middleware",
-    description="API REST para integración con Hyperledger Fabric",
-    version="1.0.0"
+    description="REST API for Hyperledger Fabric blockchain integration",
+    version="1.0.0",
+    lifespan=lifespan
 )
 
 
 # ============================================================================
-# ENDPOINTS
+# Endpoints
 # ============================================================================
 
-@app.post("/registrar-hash", response_model=FabricResponse)
-async def registrar_hash(request: FabricRequest):
-    """
-    Endpoint principal: Registra un documento en Hyperledger Fabric
-
-    Parámetros:
-    - curso_id: ID del curso
-    - file_hash: SHA-256 del archivo
-    - issuer: Email del usuario que registra
-    - date: Fecha en formato YYYY-MM-DD
-    - file_name: Nombre del archivo (opcional)
-    - file_type: Tipo MIME (opcional)
-    - file_size: Tamaño en bytes (opcional)
-    - uploader_email: Email del que sube (opcional)
-    - institution_name: Nombre institución (opcional)
-    - action: create, update, delete
-
-    Retorna:
-    - txId: ID de transacción en Fabric
-    - status: "success" o "error"
-    - timestamp: Fecha/hora del registro
-    """
-    try:
-        logger.info(f"📋 Solicitud de registro: curso_id={request.curso_id}, action={request.action}")
-
-        # Validaciones básicas
-        if not request.curso_id or not request.file_hash or not request.issuer:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Parámetros requeridos faltantes: curso_id, file_hash, issuer"
-            )
-
-        if len(request.file_hash) != 64:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="file_hash debe ser SHA-256 (64 caracteres)"
-            )
-
-        # ========== LÓGICA FABRIC SIMULADA (REEMPLAZAR CON FABRIC SDK) ==========
-        # En MVP, registramos en un "ledger" simulado
-        # Producción: integrar fabric-sdk-py para conectar a red Fabric real
-
-        # Construir payload para Fabric
-        fabric_payload = {
-            "curso_id": request.curso_id,
-            "file_hash": request.file_hash,
-            "issuer": request.issuer,
-            "date": request.date,
-            "file_name": request.file_name,
-            "file_type": request.file_type,
-            "file_size": request.file_size,
-            "uploader_email": request.uploader_email,
-            "institution_name": request.institution_name,
-            "action": request.action,
-            "timestamp": datetime.utcnow().isoformat() + "Z"
-        }
-
-        # TODO: Enviar a Fabric usando fabric-sdk-py
-        # Para MVP, simulamos transacción exitosa
-        tx_id = str(uuid.uuid4())
-
-        logger.info(f"✅ Documento registrado en Fabric: txId={tx_id}")
-        logger.debug(f"Payload: {json.dumps(fabric_payload, indent=2)}")
-
-        return FabricResponse(
-            status="success",
-            message="Documento registrado exitosamente en Hyperledger Fabric",
-            txId=tx_id,
-            timestamp=datetime.utcnow().isoformat() + "Z",
-            successful=True
-        )
-
-    except HTTPException as e:
-        logger.error(f"❌ Error HTTP: {e.detail}")
-        return FabricResponse(
-            status="error",
-            message=e.detail,
-            successful=False
-        )
-    except Exception as e:
-        logger.error(f"❌ Error inesperado: {str(e)}", exc_info=True)
-        return FabricResponse(
-            status="error",
-            message=f"Error interno del servidor: {str(e)}",
-            successful=False
-        )
-
-
-@app.get("/health", response_model=HealthResponse)
+@app.get("/health", response_model=HealthCheckResponse)
 async def health_check():
     """
-    Endpoint de health check
-    Retorna estado del middleware y conectividad con Fabric
+    Health check endpoint for the Fabric Middleware
+    """
+    return HealthCheckResponse(
+        status="healthy",
+        message="SilaDocs Fabric Middleware is running",
+        version="1.0.0"
+    )
+
+
+@app.post("/registrar-documento", response_model=DocumentResponse)
+async def registrar_documento(request: DocumentRegisterRequest):
+    """
+    Register a document in Hyperledger Fabric
+
+    Args:
+        request: Document registration request with metadata
+
+    Returns:
+        DocumentResponse with transaction ID and status
     """
     try:
-        # TODO: Verificar conectividad real con Fabric
-        fabric_connected = True  # Simulado para MVP
+        logger.info(f"📝 Registering document: {request.docID}")
 
-        return HealthResponse(
-            status="healthy",
-            fabric_connected=fabric_connected,
-            timestamp=datetime.utcnow().isoformat() + "Z"
+        # Simulate blockchain operation
+        # In production, this would invoke actual Hyperledger Fabric chaincode
+        transaction_id = f"tx_{request.docID}_{int(datetime.now().timestamp() * 1000)}"
+
+        logger.info(f"✅ Document registered with transaction: {transaction_id}")
+
+        return DocumentResponse(
+            success=True,
+            transactionID=transaction_id,
+            message=f"Document {request.docID} registered successfully",
+            data={
+                "docID": request.docID,
+                "courseID": request.courseID,
+                "timestamp": request.timestamp,
+                "fileName": request.fileName,
+                "fileHash": request.fileHash,
+                "transactionID": transaction_id
+            }
         )
+
     except Exception as e:
-        logger.error(f"❌ Health check falló: {str(e)}")
-        return HealthResponse(
-            status="unhealthy",
-            fabric_connected=False,
-            timestamp=datetime.utcnow().isoformat() + "Z"
+        logger.error(f"❌ Error registering document: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/actualizar-documento", response_model=DocumentResponse)
+async def actualizar_documento(docID: str, action: str, timestamp: str):
+    """
+    Update a document in Hyperledger Fabric
+    """
+    try:
+        logger.info(f"🔄 Updating document: {docID}")
+
+        transaction_id = f"tx_upd_{docID}_{int(datetime.now().timestamp() * 1000)}"
+
+        return DocumentResponse(
+            success=True,
+            transactionID=transaction_id,
+            message=f"Document {docID} updated successfully",
+            data={
+                "docID": docID,
+                "action": action,
+                "timestamp": timestamp,
+                "transactionID": transaction_id
+            }
         )
 
+    except Exception as e:
+        logger.error(f"❌ Error updating document: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/leer-documento/{docID}", response_model=DocumentResponse)
+async def leer_documento(docID: str):
+    """
+    Read a document from Hyperledger Fabric
+    """
+    try:
+        logger.info(f"📖 Reading document: {docID}")
+
+        return DocumentResponse(
+            success=True,
+            transactionID="",
+            message=f"Document {docID} retrieved successfully",
+            data={
+                "docID": docID,
+                "message": "Document data from blockchain"
+            }
+        )
+
+    except Exception as e:
+        logger.error(f"❌ Error reading document: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/documentos-curso/{courseID}")
+async def obtener_documentos_curso(courseID: str):
+    """
+    Get all documents for a course from Hyperledger Fabric
+    """
+    try:
+        logger.info(f"📚 Retrieving documents for course: {courseID}")
+
+        return {
+            "success": True,
+            "courseID": courseID,
+            "documents": [],
+            "message": f"Retrieved documents for course {courseID}"
+        }
+
+    except Exception as e:
+        logger.error(f"❌ Error retrieving course documents: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/eliminar-documento/{docID}", response_model=DocumentResponse)
+async def eliminar_documento(docID: str):
+    """
+    Delete (mark as deleted) a document in Hyperledger Fabric
+    """
+    try:
+        logger.info(f"🗑️ Deleting document: {docID}")
+
+        transaction_id = f"tx_del_{docID}_{int(datetime.now().timestamp() * 1000)}"
+
+        return DocumentResponse(
+            success=True,
+            transactionID=transaction_id,
+            message=f"Document {docID} deleted successfully",
+            data={
+                "docID": docID,
+                "action": "DELETED",
+                "transactionID": transaction_id
+            }
+        )
+
+    except Exception as e:
+        logger.error(f"❌ Error deleting document: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# ============================================================================
+# Root Endpoint
+# ============================================================================
 
 @app.get("/")
 async def root():
-    """Endpoint raíz de información"""
+    """Root endpoint with API documentation links"""
     return {
-        "nombre": "SilaDocs Fabric Middleware",
+        "name": "SilaDocs Fabric Middleware",
         "version": "1.0.0",
-        "descripcion": "API REST para integración con Hyperledger Fabric",
-        "endpoints": {
-            "registrar": "POST /registrar-hash",
-            "health": "GET /health",
-            "docs": "GET /docs"
-        }
+        "description": "REST API for Hyperledger Fabric blockchain integration",
+        "docs": "/docs",
+        "status": "running"
     }
-
-
-# ============================================================================
-# STARTUP/SHUTDOWN EVENTS
-# ============================================================================
-
-@app.on_event("startup")
-async def startup_event():
-    """Evento de inicio de la aplicación"""
-    logger.info("🚀 SilaDocs Fabric Middleware iniciado")
-    logger.info(f"📡 Fabric API URL: {os.getenv('FABRIC_API_URL', 'No configurado')}")
-
-
-@app.on_event("shutdown")
-async def shutdown_event():
-    """Evento de cierre de la aplicación"""
-    logger.info("🛑 SilaDocs Fabric Middleware detenido")
 
 
 if __name__ == "__main__":
     import uvicorn
+
+    port = int(os.getenv("FABRIC_MIDDLEWARE_PORT", 8000))
+    host = os.getenv("FABRIC_MIDDLEWARE_HOST", "0.0.0.0")
+
+    logger.info(f"Starting Fabric Middleware on {host}:{port}")
+
     uvicorn.run(
-        "main:app",
-        host="0.0.0.0",
-        port=8000,
-        reload=True,
+        app,
+        host=host,
+        port=port,
         log_level="info"
     )
