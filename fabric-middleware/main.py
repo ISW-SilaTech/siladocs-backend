@@ -2,8 +2,10 @@
 from contextlib import asynccontextmanager
 import os
 import logging
-from fastapi import FastAPI
+from datetime import datetime
+from fastapi import FastAPI, HTTPException
 from fastapi.responses import JSONResponse
+from pydantic import BaseModel
 import httpx
 
 # ============================================================================
@@ -12,6 +14,33 @@ import httpx
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+# ============================================================================
+# Pydantic Models (Request/Response schemas)
+# ============================================================================
+
+class HealthCheckResponse(BaseModel):
+    status: str
+    message: str
+    version: str
+
+class DocumentRegisterRequest(BaseModel):
+    docID: str
+    courseID: str
+    fileName: str
+    fileType: str
+    fileSize: int
+    fileHash: str
+    uploaderEmail: str
+    institutionName: str
+    action: str
+    timestamp: str
+
+class DocumentResponse(BaseModel):
+    success: bool
+    transactionID: str
+    message: str
+    data: dict
 
 # ============================================================================
 # Lifecycle Events
