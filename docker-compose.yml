@@ -1,3 +1,5 @@
+version: '3.8'
+
 services:
   postgres:
     image: postgres:15
@@ -9,6 +11,8 @@ services:
       - "5432:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
+    networks:
+      - siladocs-network
 
   pgadmin:
     image: dpage/pgadmin4
@@ -19,6 +23,8 @@ services:
       - "5050:80"
     depends_on:
       - postgres
+    networks:
+      - siladocs-network
 
   minio:
     image: minio/minio:latest
@@ -27,21 +33,53 @@ services:
       MINIO_ROOT_USER: minioadmin
       MINIO_ROOT_PASSWORD: minioadmin
     ports:
-      - "9005:9000"   # API
-      - "9001:9001"   # Consola web
+      - "9005:9000"
+      - "9001:9001"
     volumes:
       - minio-data:/data
+    networks:
+      - siladocs-network
+
+  fabric-middleware:
+    build:
+      context: ./fabric-middleware
+      dockerfile: Dockerfile
+    container_name: fabric-middleware
+    ports:
+      - "8000:8000"
+    environment:
+      - MIDDLEWARE_HOST=0.0.0.0
+      - MIDDLEWARE_PORT=8000
+      - LOG_LEVEL=INFO
+    command: uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+    networks:
+      - siladocs-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
 
   backend:
     build: .
+    container_name: siladocs-backend
     ports:
       - "8080:8080"
     depends_on:
       - postgres
       - minio
+      - fabric-middleware
     environment:
-      - SPRING_PROFILES_ACTIVE=docker
+      - SPRING_PROFILES_ACTIVE=fabric
+      - FABRIC_API_URL=http://fabric-middleware:8000
+    networks:
+      - siladocs-network
 
 volumes:
   pgdata:
   minio-data:
+
+networks:
+  siladocs-network:
+    driver: bridge
