@@ -32,17 +32,12 @@ public class SyllabusController {
     @PostMapping(value = "/upload", consumes = org.springframework.http.MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<?> uploadSyllabus(
         Authentication authentication,
-        @RequestPart("file") MultipartFile file, // Cambiado de @RequestParam a @RequestPart
+        @RequestPart("file") MultipartFile file,
         @RequestParam("courseId") Long courseId,
-        @RequestParam("action") String action) {
+        @RequestParam(value = "action", defaultValue = "create") String action) {
         try {
-            // Llamar al servicio con la nueva firma: (courseId, file, action)
-            syllabusService.uploadSyllabus(courseId, file, action);
-
-            // Retornar respuesta de éxito
-            return ResponseEntity.status(HttpStatus.CREATED)
-                    .body(Map.of("message", "Sílabo registrado exitosamente", "courseId", courseId));
-
+            SyllabusResponse response = syllabusService.uploadSyllabus(courseId, file, action);
+            return ResponseEntity.status(HttpStatus.CREATED).body(response);
         } catch (Exception e) {
             log.error("Error FATAL en la subida del sílabo: {}", e.getMessage(), e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)

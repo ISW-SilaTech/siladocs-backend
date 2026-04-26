@@ -35,6 +35,9 @@ public class SyllabusEntity {
     @Column(name = "last_chain_hash", nullable = false, length = 64)
     private String lastChainHash; // Hash del último bloque en la tabla de historial
 
+    @Column(name = "fabric_tx_id")
+    private String fabricTxId; // Transaction ID retornado por Hyperledger Fabric
+
     // --- Timestamps ---
 
     @Column(name = "created_at", updatable = false, nullable = false)

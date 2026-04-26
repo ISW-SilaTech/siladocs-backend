@@ -11,7 +11,6 @@ public record SyllabusResponse(
     Long fileSize,
     String currentHash,
     String status,
-    Instant uploadedAt
-) {
-    // fabricTxId is not stored in current schema; could be added later
-}
+    Instant uploadedAt,
+    String fabricTxId
+) {}

@@ -91,7 +91,7 @@ public class SyllabusService {
      * @throws IllegalArgumentException Si parámetros son inválidos
      */
     @Transactional
-    public void uploadSyllabus(Long courseId, MultipartFile syllabusFile, String action) {
+    public SyllabusResponse uploadSyllabus(Long courseId, MultipartFile syllabusFile, String action) {
         String userEmail = getAuthenticatedUserEmail();
 
         log.info("🔄 INICIANDO UPLOAD DE SÍLABO: courseId={}, user={}, action={}, file={}",
@@ -122,7 +122,19 @@ public class SyllabusService {
             var existingSyllabus = syllabusRepo.findFirstByCourse_IdOrderByCurrentVersionDesc(courseId);
             if (existingSyllabus.isPresent() && fileHash.equals(existingSyllabus.get().getCurrentHash())) {
                 log.info("⏭️ OMITIENDO UPLOAD: Hash idéntico (sin cambios reales para courseId={})", courseId);
-                return;
+                SyllabusEntity existing = existingSyllabus.get();
+                return new SyllabusResponse(
+                        existing.getId(),
+                        existing.getCourse().getId(),
+                        existing.getCourse().getName(),
+                        existing.getCourse().getCode(),
+                        existing.getFileUrl(),
+                        syllabusFile.getSize(),
+                        existing.getCurrentHash(),
+                        existing.getStatus(),
+                        existing.getCreatedAt(),
+                        existing.getFabricTxId()
+                );
             }
             log.debug("✅ Contenido del sílabo ha cambiado o es nuevo");
 
@@ -171,7 +183,6 @@ public class SyllabusService {
                         getInstitutionNameFromUser(userEmail));
                 log.info("✅ FABRIC EXITOSO: txId={}", txId);
             } catch (BlockchainException e) {
-                // Si Fabric falla, la transacción se revierte automáticamente
                 log.error("❌ FALLO CRÍTICO EN FABRIC: {}. La transacción será revertida.", e.getMessage());
                 throw new BlockchainException(
                         "Blockchain registró error: " + e.getMessage() +
@@ -180,26 +191,34 @@ public class SyllabusService {
             }
 
             // ===== PASO 9: PERSISTIR EN PostgreSQL (SOLO SI FABRIC EXITOSO) =====
+            syllabus.setFabricTxId(txId);
             try {
                 SyllabusEntity saved = syllabusRepo.save(syllabus);
                 log.info("✅ SÍLABO GUARDADO EN PostgreSQL: syllabusId={}, version={}, txId={}",
                         saved.getId(), saved.getCurrentVersion(), txId);
+
+                return new SyllabusResponse(
+                        saved.getId(),
+                        saved.getCourse().getId(),
+                        saved.getCourse().getName(),
+                        saved.getCourse().getCode(),
+                        saved.getFileUrl(),
+                        syllabusFile.getSize(),
+                        saved.getCurrentHash(),
+                        saved.getStatus(),
+                        saved.getCreatedAt(),
+                        saved.getFabricTxId()
+                );
             } catch (Exception e) {
                 log.error("❌ Error al guardar en PostgreSQL (Fabric ya registró): {}", e.getMessage());
-                // Nota: El archivo en MinIO ya existe. Considera job de limpieza
                 throw new RuntimeException(
                         "Error al guardar en BD (Fabric ya registrado): " + e.getMessage(),
                         e);
             }
 
-            log.info("🎉 UPLOAD COMPLETO: courseId={}, version={}, hash_prefix={}",
-                    courseId, nextVersion, fileHash.substring(0, 12));
-
         } catch (BlockchainException e) {
-            // Re-lanzar excepciones de blockchain
             throw e;
         } catch (IllegalArgumentException e) {
-            // Re-lanzar validaciones
             throw e;
         } catch (Exception e) {
             log.error("❌ ERROR INESPERADO: {}", e.getMessage(), e);
@@ -294,10 +313,11 @@ public class SyllabusService {
                             syllabus.getCourse().getName(),
                             syllabus.getCourse().getCode(),
                             syllabus.getFileUrl(),
-                            0L, // fileSize not stored, default to 0
+                            0L, // fileSize not stored at entity level
                             syllabus.getCurrentHash(),
                             syllabus.getStatus(),
-                            syllabus.getCreatedAt()
+                            syllabus.getCreatedAt(),
+                            syllabus.getFabricTxId()
                     ))
                     .collect(Collectors.toList());
         } catch (Exception e) {
