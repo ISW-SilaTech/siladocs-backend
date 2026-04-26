@@ -8,12 +8,18 @@ import lombok.NoArgsConstructor;
 /**
  * DTO para el payload enviado a la API REST de Hyperledger Fabric (middleware Python).
  *
- * La API espera:
+ * Matches the middleware API contract at POST /registrar-documento:
  * {
- *   "curso_id": "String",
- *   "file_hash": "String (SHA-256)",
- *   "issuer": "String (Email o Nombre del admin)",
- *   "date": "String (YYYY-MM-DD)"
+ *   "docID": "String",
+ *   "courseID": "String",
+ *   "fileName": "String",
+ *   "fileType": "String (MIME type)",
+ *   "fileSize": "Long",
+ *   "fileHash": "String (SHA-256)",
+ *   "uploaderEmail": "String",
+ *   "institutionName": "String",
+ *   "action": "String (create|update|delete)",
+ *   "timestamp": "String (ISO-8601)"
  * }
  */
 @Data
@@ -22,53 +28,33 @@ import lombok.NoArgsConstructor;
 @Builder
 public class BlockchainFabricRequestDto {
 
-    /**
-     * ID del curso (para relacionar la transacción con el syllabus)
-     */
-    private String curso_id;
+    @com.fasterxml.jackson.annotation.JsonProperty("docID")
+    private String docID;
 
-    /**
-     * Hash SHA-256 del archivo del sílabo
-     */
-    private String file_hash;
+    @com.fasterxml.jackson.annotation.JsonProperty("courseID")
+    private String courseID;
 
-    /**
-     * Email o nombre del usuario que registra (admin)
-     */
-    private String issuer;
+    @com.fasterxml.jackson.annotation.JsonProperty("fileName")
+    private String fileName;
 
-    /**
-     * Fecha de registro en formato YYYY-MM-DD
-     */
-    private String date;
+    @com.fasterxml.jackson.annotation.JsonProperty("fileType")
+    private String fileType;
 
-        /**
-     * Nombre del archivo del documento
-     */
-    private String file_name;
+    @com.fasterxml.jackson.annotation.JsonProperty("fileSize")
+    private Long fileSize;
 
-    /**
-     * Tipo MIME del documento
-     */
-    private String file_type;
+    @com.fasterxml.jackson.annotation.JsonProperty("fileHash")
+    private String fileHash;
 
-    /**
-     * Tamaño del archivo en bytes
-     */
-    private Long file_size;
+    @com.fasterxml.jackson.annotation.JsonProperty("uploaderEmail")
+    private String uploaderEmail;
 
-    /**
-     * Email del usuario que sube el documento
-     */
-    private String uploader_email;
+    @com.fasterxml.jackson.annotation.JsonProperty("institutionName")
+    private String institutionName;
 
-    /**
-     * Nombre de la institución (desde AuthController)
-     */
-    private String institution_name;
-
-    /**
-     * Acción: create, update, delete
-     */
+    @com.fasterxml.jackson.annotation.JsonProperty("action")
     private String action;
+
+    @com.fasterxml.jackson.annotation.JsonProperty("timestamp")
+    private String timestamp;
 }

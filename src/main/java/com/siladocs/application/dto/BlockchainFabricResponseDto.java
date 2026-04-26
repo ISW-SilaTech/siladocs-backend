@@ -9,12 +9,12 @@ import lombok.NoArgsConstructor;
 /**
  * DTO para la respuesta de la API REST de Hyperledger Fabric (middleware Python).
  *
- * La API devuelve:
+ * The middleware returns:
  * {
- *   "status": "success" | "error",
- *   "txId": "String (transaction ID en Fabric)",
+ *   "success": boolean,
+ *   "transactionID": "String (transaction ID en Fabric)",
  *   "message": "String (mensaje descriptivo)",
- *   "timestamp": "String (ISO-8601)"
+ *   "data": { ... document metadata ... }
  * }
  */
 @Data
@@ -24,16 +24,16 @@ import lombok.NoArgsConstructor;
 public class BlockchainFabricResponseDto {
 
     /**
-     * Estado de la transacción: "success" o "error"
+     * Indica si la transacción fue exitosa
      */
-    @JsonProperty("status")
-    private String status;
+    @JsonProperty("success")
+    private boolean success;
 
     /**
      * ID de la transacción en Hyperledger Fabric
      */
-    @JsonProperty("txId")
-    private String txId;
+    @JsonProperty("transactionID")
+    private String transactionID;
 
     /**
      * Mensaje descriptivo de la respuesta
@@ -42,17 +42,24 @@ public class BlockchainFabricResponseDto {
     private String message;
 
     /**
-     * Timestamp en formato ISO-8601
+     * Metadata del documento registrado
      */
-    @JsonProperty("timestamp")
-    private String timestamp;
+    @JsonProperty("data")
+    private java.util.Map<String, Object> data;
 
     /**
      * Verifica si la transacción fue exitosa.
      *
-     * @return true si status es "success"
+     * @return true si success es true
      */
     public boolean isSuccessful() {
-        return "success".equalsIgnoreCase(status);
+        return success;
+    }
+
+    /**
+     * Para retrocompatibilidad: getter para txId que retorna transactionID
+     */
+    public String getTxId() {
+        return transactionID;
     }
 }

@@ -49,6 +49,6 @@ app:
 blockchain:
   fabric:
     api:
-      url: ${FABRIC_API_URL:http://host.docker.internal:8000}
+      url: ${FABRIC_API_URL:http://localhost:8000}
     mock:
-      enabled: ${BLOCKCHAIN_MOCK_ENABLED:true}
+      enabled: ${BLOCKCHAIN_MOCK_ENABLED:false}

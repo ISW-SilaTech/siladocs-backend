@@ -16,6 +16,8 @@ import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.HttpServerErrorException;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.UUID;
 
@@ -44,10 +46,10 @@ public class BlockchainService {
 
     private static final Logger log = LoggerFactory.getLogger(BlockchainService.class);
 
-    private static final String FABRIC_REGISTER_ENDPOINT = "/registrar-hash";
+    private static final String FABRIC_REGISTER_ENDPOINT = "/registrar-documento";
     private static final String FABRIC_HEALTH_ENDPOINT = "/health";
-    private static final String DATE_FORMAT = "yyyy-MM-dd";
-    private static final DateTimeFormatter dateFormatter = DateTimeFormatter.ofPattern(DATE_FORMAT);
+    private static final String TIMESTAMP_FORMAT = "yyyy-MM-dd'T'HH:mm:ss'Z'";
+    private static final DateTimeFormatter timestampFormatter = DateTimeFormatter.ofPattern(TIMESTAMP_FORMAT);
 
     private final RestClient fabricRestClient;
 
@@ -65,7 +67,7 @@ public class BlockchainService {
      * FLUJO PRINCIPAL:
      * 1. Valida parámetros de entrada
      * 2. Construye el payload JSON
-     * 3. Realiza POST a /registrar-hash
+     * 3. Realiza POST a /registrar-documento
      * 4. Captura y valida respuesta
      * 5. Maneja errores específicos (4xx, 5xx, timeout)
      * 6. Retorna transactionId si es exitoso
@@ -94,17 +96,20 @@ public class BlockchainService {
                     courseId, fileHash.substring(0, 8), issuerEmail, action);
 
             // ======= CONSTRUIR PAYLOAD =======
+            String docID = "doc-" + courseId + "-" + System.currentTimeMillis();
+            String timestamp = LocalDateTime.now(ZoneId.of("UTC")).format(timestampFormatter);
+
             BlockchainFabricRequestDto payload = BlockchainFabricRequestDto.builder()
-                    .curso_id(courseId)
-                    .file_hash(fileHash)
-                    .issuer(issuerEmail)
-                    .date(LocalDate.now().format(dateFormatter))
-                    .file_name(fileName)
-                    .file_type(fileType)
-                    .file_size(fileSize)
-                    .uploader_email(uploaderEmail)
-                    .institution_name(institutionName)
+                    .docID(docID)
+                    .courseID(courseId)
+                    .fileName(fileName)
+                    .fileType(fileType)
+                    .fileSize(fileSize)
+                    .fileHash(fileHash)
+                    .uploaderEmail(uploaderEmail)
+                    .institutionName(institutionName)
                     .action(action)
+                    .timestamp(timestamp)
                     .build();
 
             log.debug("✉️ Payload JSON construido: {}", payload);
@@ -132,22 +137,22 @@ public class BlockchainService {
             }
 
             if (!fabricResponse.isSuccessful()) {
-                log.error("❌ Fabric rechazó la transacción: status={}, message={}",
-                        fabricResponse.getStatus(), fabricResponse.getMessage());
+                log.error("❌ Fabric rechazó la transacción: success={}, message={}",
+                        fabricResponse.isSuccessful(), fabricResponse.getMessage());
                 throw new BlockchainException(
                         "Fabric rechazó la transacción: " + fabricResponse.getMessage());
             }
 
-            String txId = fabricResponse.getTxId();
-            if (txId == null || txId.isBlank()) {
+            String transactionID = fabricResponse.getTransactionID();
+            if (transactionID == null || transactionID.isBlank()) {
                 log.error("❌ Fabric no devolvió transaction ID");
                 throw new BlockchainException("Fabric no devolvió transaction ID");
             }
 
-            log.info("✅ Sílabo registrado exitosamente en Fabric: courseId={}, txId={}, timestamp={}",
-                    courseId, txId, fabricResponse.getTimestamp());
+            log.info("✅ Sílabo registrado exitosamente en Fabric: courseId={}, transactionID={}, message={}",
+                    courseId, transactionID, fabricResponse.getMessage());
 
-            return txId;
+            return transactionID;
 
         } catch (HttpClientErrorException e) {
             // 4xx errors
