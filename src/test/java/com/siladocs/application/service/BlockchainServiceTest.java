@@ -60,10 +60,9 @@ public class BlockchainServiceTest {
         String action = "create";
 
         BlockchainFabricResponseDto successResponse = BlockchainFabricResponseDto.builder()
-                .status("success")
-                .txId("tx-12345")
+                .success(true)
+                .transactionID("tx-12345")
                 .message("Registrado en Fabric")
-                .timestamp("2026-04-08T10:00:00Z")
                 .build();
 
         // Mock: cuando se llame a POST, devolver la respuesta exitosa
@@ -71,7 +70,7 @@ public class BlockchainServiceTest {
 
         // Act & Assert
         assertTrue(successResponse.isSuccessful());
-        assertEquals("tx-12345", successResponse.getTxId());
+        assertEquals("tx-12345", successResponse.getTransactionID());
     }
 
     @Test
@@ -106,10 +105,9 @@ public class BlockchainServiceTest {
     public void testRegisterSyllabusInFabric_FailureStatus() {
         // Arrange
         BlockchainFabricResponseDto failureResponse = BlockchainFabricResponseDto.builder()
-                .status("error")
-                .txId(null)
+                .success(false)
+                .transactionID(null)
                 .message("Hash duplicado")
-                .timestamp("2026-04-08T10:00:00Z")
                 .build();
 
         // Assert
@@ -163,7 +161,11 @@ public class BlockchainServiceTest {
     @DisplayName("BlockchainFabricResponseDto debe validar éxito")
     public void testBlockchainFabricResponseDto_IsSuccessful() {
         // Arrange
-        BlockchainFabricResponseDto dto = new BlockchainFabricResponseDto("success", "tx-123", "OK", "2026-04-08");
+        BlockchainFabricResponseDto dto = BlockchainFabricResponseDto.builder()
+                .success(true)
+                .transactionID("tx-123")
+                .message("OK")
+                .build();
 
         // Assert
         assertTrue(dto.isSuccessful());
@@ -174,14 +176,14 @@ public class BlockchainServiceTest {
     public void testBlockchainFabricRequestDto_Builder() {
         // Arrange & Act
         BlockchainFabricRequestDto dto = BlockchainFabricRequestDto.builder()
-                .curso_id("123")
-                .file_hash("a".repeat(64))
-                .issuer("admin@test.com")
-                .date("2026-04-08")
+                .courseID("123")
+                .fileHash("a".repeat(64))
+                .uploaderEmail("admin@test.com")
+                .timestamp("2026-04-08T10:00:00Z")
                 .build();
 
         // Assert
-        assertEquals("123", dto.getCurso_id());
-        assertEquals("admin@test.com", dto.getIssuer());
+        assertEquals("123", dto.getCourseID());
+        assertEquals("admin@test.com", dto.getUploaderEmail());
     }
 }
