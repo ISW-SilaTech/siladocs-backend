@@ -6,6 +6,7 @@ import com.siladocs.application.exception.BlockchainException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatusCode;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
@@ -16,6 +17,7 @@ import org.springframework.web.client.HttpServerErrorException;
 
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
+import java.util.UUID;
 
 /**
  * Servicio de Blockchain refactorizado para usar Hyperledger Fabric.
@@ -49,11 +51,9 @@ public class BlockchainService {
 
     private final RestClient fabricRestClient;
 
-    /**
-     * Constructor con inyección de dependencias.
-     *
-     * @param fabricRestClient RestClient inyectado desde BlockchainConfig
-     */
+    @Value("${blockchain.fabric.mock.enabled:false}")
+    private boolean mockEnabled;
+
     public BlockchainService(@Qualifier("fabricRestClient") RestClient fabricRestClient) {
         this.fabricRestClient = fabricRestClient;
         log.info("BlockchainService inicializado con RestClient para Hyperledger Fabric");
@@ -79,6 +79,13 @@ public class BlockchainService {
      */
     public String registerSyllabusInFabric(String courseId, String fileHash, String issuerEmail, String action,
             String fileName, String fileType, Long fileSize, String uploaderEmail, String institutionName) {
+
+        if (mockEnabled) {
+            String mockTxId = "MOCK-" + UUID.randomUUID().toString().replace("-", "").substring(0, 24).toUpperCase();
+            log.warn("⚠️ MOCK MODE: Fabric no activo. txId simulado: {}", mockTxId);
+            return mockTxId;
+        }
+
         try {
             // ======= VALIDACIÓN DE ENTRADA =======
             validateInput(courseId, fileHash, issuerEmail, action);
