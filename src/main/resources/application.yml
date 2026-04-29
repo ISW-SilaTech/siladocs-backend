@@ -3,7 +3,6 @@ server:
     context-path: /api
 
 spring:
-  # Configuración de JPA (es común a todos los entornos)
   jpa:
     hibernate:
       ddl-auto: update
@@ -12,26 +11,34 @@ spring:
       hibernate:
         dialect: org.hibernate.dialect.PostgreSQLDialect
 
-  # Configuración de subida de archivos (común)
   servlet:
     multipart:
       max-file-size: 50MB
       max-request-size: 50MB
 
-# Configuración de JWT (es común)
+  mail:
+    host: smtp.gmail.com
+    port: 587
+    username: ${GMAIL_USER:your-gmail@gmail.com}
+    password: ${GMAIL_PASSWORD:your-app-password}
+    properties:
+      mail.smtp.auth: true
+      mail.smtp.starttls.enable: true
+      mail.smtp.starttls.required: true
+      mail.smtp.connectiontimeout: 5000
+      mail.smtp.timeout: 5000
+      mail.smtp.writetimeout: 5000
+
 siladocs:
   jwt:
     secret: ${JWT_SECRET:siladocs-jwt-secret-key-2024-minimum-32-bytes-long-secure}
     expiration-ms: 86400000
-  
-  # Configuración de almacenamiento MinIO
   storage:
     endpoint: http://localhost:9000
     access-key: minioadmin
     secret-key: minioadmin
     bucket: siladocs
 
-# Configuración de Actuator (es común)
 management:
   endpoints:
     web:
@@ -41,7 +48,6 @@ management:
     health:
       show-details: always
 
-# Configuración del Frontend
 app:
   frontend:
     reset-url: http://localhost:3000/reset-password
@@ -52,3 +58,13 @@ blockchain:
       url: ${FABRIC_API_URL:http://localhost:8000}
     mock:
       enabled: ${BLOCKCHAIN_MOCK_ENABLED:false}
+
+contact:
+  admin-email: ${CONTACT_ADMIN_EMAIL:admin@siladocs.com}
+  from-email: ${GMAIL_USER:your-gmail@gmail.com}
+  from-name: Siladocs
+
+recaptcha:
+  secret-key: ${RECAPTCHA_SECRET_KEY:your-secret-key}
+  site-key: ${RECAPTCHA_SITE_KEY:your-site-key}
+  score-threshold: 0.5
