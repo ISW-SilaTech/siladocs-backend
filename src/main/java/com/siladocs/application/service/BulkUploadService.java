@@ -1,6 +1,6 @@
 package com.siladocs.application.service;
 
-// 🔹 Imports de tu propio proyecto
+import com.siladocs.application.dto.BulkCourseRequestDto;
 import com.siladocs.domain.repository.UserRepository;
 import com.siladocs.infrastructure.persistence.entity.CareerEntity;
 import com.siladocs.infrastructure.persistence.entity.CourseEntity;
@@ -8,182 +8,228 @@ import com.siladocs.infrastructure.persistence.entity.CurriculumEntity;
 import com.siladocs.infrastructure.persistence.jparepository.CareerJpaRepository;
 import com.siladocs.infrastructure.persistence.jparepository.CourseJpaRepository;
 import com.siladocs.infrastructure.persistence.jparepository.CurriculumJpaRepository;
-import com.siladocs.application.dto.BulkCourseRequestDto;
 
-// 🔹 Imports de librerías (Spring, Hashing, Logging)
-import org.apache.commons.codec.digest.DigestUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-// 🔹 Imports de utilidades de Java
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
-import java.util.stream.Collectors;
 
 @Service
 public class BulkUploadService {
 
-    // 🔹 ----- DECLARACIÓN DE LOGGER (FALTABA) ----- 🔹
     private static final Logger log = LoggerFactory.getLogger(BulkUploadService.class);
 
     private final CareerJpaRepository careerRepository;
     private final CurriculumJpaRepository curriculumRepository;
     private final CourseJpaRepository courseRepository;
-
-    // 🔹 ----- NUEVAS DEPENDENCIAS ----- 🔹
-    private final BlockchainService blockchainService;
     private final UserRepository userRepository;
 
-    // 🔹 ----- CONSTRUCTOR ACTUALIZADO ----- 🔹
     public BulkUploadService(CareerJpaRepository careerRepository,
             CurriculumJpaRepository curriculumRepository,
             CourseJpaRepository courseRepository,
-            BlockchainService blockchainService,
             UserRepository userRepository) {
         this.careerRepository = careerRepository;
         this.curriculumRepository = curriculumRepository;
         this.courseRepository = courseRepository;
-        this.blockchainService = blockchainService;
         this.userRepository = userRepository;
     }
 
-    /**
-     * 🔹 MÉTODO ACTUALIZADO: Ahora acepta 'userEmail'
-     */
     @Transactional
     public BulkUploadResult processBulkCourses(List<BulkCourseRequestDto> requests, String userEmail) {
         log.info("Iniciando procesamiento de carga masiva de {} cursos por usuario: {}", requests.size(), userEmail);
+
         int successCount = 0;
         List<String> errors = new ArrayList<>();
 
-        // 🔹 ----- LÓGICA DE PRE-FETCH (COMPLETADA) ----- 🔹
-        Map<String, CareerEntity> careersByName = careerRepository.findAll().stream()
-                .collect(Collectors.toMap(CareerEntity::getName, c -> c, (c1, c2) -> c1)); // Maneja duplicados si
-                                                                                           // existen
-        Map<String, CurriculumEntity> curriculumsByName = curriculumRepository.findAll().stream()
-                .collect(Collectors.toMap(CurriculumEntity::getName, m -> m, (m1, m2) -> m1));
-
         for (int i = 0; i < requests.size(); i++) {
             BulkCourseRequestDto req = requests.get(i);
-            int rowNum = i + 2; // Asumiendo fila 1 es cabecera
+            int rowNum = i + 2;
 
             try {
-                // 🔹 ----- LÓGICA DE VALIDACIÓN (COMPLETADA) ----- 🔹
-
-                // 1. Encontrar Carrera
-                CareerEntity career = careersByName.get(req.getCarrera());
-                if (career == null) {
-                    throw new IllegalArgumentException("Carrera no encontrada: '" + req.getCarrera() + "'");
+                // ── Validate presence of required nested objects ──────────────
+                if (req.getCarrera() == null || req.getCarrera().getNombre() == null
+                        || req.getCarrera().getNombre().isBlank()) {
+                    throw new IllegalArgumentException("Carrera.nombre es requerido");
+                }
+                if (req.getMalla() == null || req.getMalla().getNombre() == null
+                        || req.getMalla().getNombre().isBlank()) {
+                    throw new IllegalArgumentException("Malla.nombre es requerido");
+                }
+                if (req.getCurso() == null || req.getCurso().getNombre() == null
+                        || req.getCurso().getNombre().isBlank()) {
+                    throw new IllegalArgumentException("Curso.nombre es requerido");
                 }
 
-                // 2. Encontrar Malla
-                CurriculumEntity curriculum = curriculumsByName.get(req.getMalla());
-                if (curriculum == null) {
-                    throw new IllegalArgumentException("Malla no encontrada: '" + req.getMalla() + "'");
-                }
+                // ── Step 1: Find or Create Career ─────────────────────────────
+                CareerEntity career = findOrCreateCareer(req.getCarrera(), rowNum);
 
-                // 3. Validar Consistencia
-                if (!curriculum.getCareer().getId().equals(career.getId())) {
-                    throw new IllegalArgumentException(
-                            "La Malla '" + req.getMalla() + "' no pertenece a la Carrera '" + req.getCarrera() + "'");
-                }
+                // ── Step 2: Find or Create Curriculum (Malla) ─────────────────
+                CurriculumEntity curriculum = findOrCreateCurriculum(req.getMalla(), career, rowNum);
 
-                // 4. Validar Ciclo
-                int cycleNumber;
-                try {
-                    cycleNumber = Integer.parseInt(req.getCiclo());
-                    if (cycleNumber < 1 || cycleNumber > career.getCycles()) {
-                        throw new NumberFormatException();
-                    }
-                } catch (NumberFormatException e) {
-                    throw new IllegalArgumentException("Ciclo inválido: '" + req.getCiclo()
-                            + "'. Debe ser un número entre 1 y " + career.getCycles());
-                }
-
-                // 5. Validar Duplicados (Curso)
-                boolean exists = courseRepository.findByCurriculumId(curriculum.getId()).stream()
-                        .anyMatch(course -> course.getName().equalsIgnoreCase(req.getCurso()));
-                if (exists) {
-                    log.warn("Fila {}: El curso '{}' ya existe en la malla '{}'. Omitiendo.", rowNum, req.getCurso(),
-                            req.getMalla());
-                    continue; // Saltar al siguiente registro
-                }
-
-                // 6. 🔹 ----- CREAR ENTIDAD (COMPLETADO) ----- 🔹
-                CourseEntity newCourse = new CourseEntity();
-                newCourse.setName(req.getCurso());
-                newCourse.setCurriculum(curriculum);
-                newCourse.setCareer(career);
-                newCourse.setFaculty(career.getFaculty()); // Hereda facultad de la carrera
-                newCourse.setYear(curriculum.getYear()); // Hereda año de la malla
-                newCourse.setStatus("Active"); // Default
-                newCourse.setSyllabusCount(0); // Default
-                newCourse.setPublicationDate(LocalDate.now()); // Default
-
-                // 7. Generar Código
-                String generatedCode = generateCourseCode(career.getName(), req.getCurso(), cycleNumber);
-                if (courseRepository.existsByCode(generatedCode)) {
-                    log.warn("Fila {}: Código generado '{}' ya existe. Omitiendo.", rowNum, generatedCode);
-                    continue;
-                }
-                newCourse.setCode(generatedCode);
-
-                // 8. Guardar en SQL
-                courseRepository.save(newCourse);
-                successCount++;
-
-                // 9. 🔹 Registrar en Blockchain 🔹
-                try {
-                    String dataHash = DigestUtils.sha256Hex(req.toString());
-                    String txHash = blockchainService.registerSyllabusInFabric(
-                            newCourse.getId().toString(),
-                            dataHash,
-                            userEmail,
-                            "CURSO_CREADO (MASIVO)",
-                            null, // fileName (no aplica para cursos)
-                            null, // fileType
-                            null, // fileSize
-                            userEmail, // uploaderEmail
-                            "Institución desconocida" // institutionName
-                    );
-                    log.info("Fila {} (Curso ID {}): Registrado en Blockchain (Tx: {})", rowNum, newCourse.getId(),
-                            txHash);
-                } catch (Exception e) {
-                    log.error("Fila {}: Curso guardado en SQL (ID {}) pero ¡FALLÓ registro en Blockchain!: {}", rowNum,
-                            newCourse.getId(), e.getMessage());
-                    // Lanzamos la excepción para revertir la creación del curso en SQL
-                    throw new RuntimeException("Error en Blockchain para Fila " + rowNum + ", revirtiendo.", e);
+                // ── Step 3: Find or Create Course ─────────────────────────────
+                boolean created = findOrCreateCourse(req.getCurso(), career, curriculum, rowNum);
+                if (created) {
+                    successCount++;
                 }
 
             } catch (IllegalArgumentException e) {
-                // 🔹 ----- MANEJO DE ERROR (COMPLETADO) ----- 🔹
                 log.error("Error en Fila {}: {}", rowNum, e.getMessage());
                 errors.add("Fila " + rowNum + ": " + e.getMessage());
-            } catch (Exception e) { // Captura errores inesperados
+            } catch (Exception e) {
                 log.error("Error inesperado en Fila {}: {}", rowNum, e.getMessage(), e);
                 errors.add("Fila " + rowNum + ": Error inesperado - " + e.getMessage());
             }
         }
 
-        log.info("Procesamiento de carga masiva finalizado. Éxito: {}, Errores: {}", successCount, errors.size());
+        log.info("Procesamiento finalizado. Éxito: {}, Errores: {}", successCount, errors.size());
         return new BulkUploadResult(successCount, errors);
     }
 
-    // 🔹 ----- MÉTODO HELPER (AÑADIDO) ----- 🔹
-    private String generateCourseCode(String careerName, String courseName, int cycle) {
-        String careerPrefix = careerName.length() >= 3 ? careerName.substring(0, 3).toUpperCase()
-                : careerName.toUpperCase();
-        String coursePrefix = courseName.length() >= 3 ? courseName.substring(0, 3).toUpperCase()
-                : courseName.toUpperCase();
-        // Añade número aleatorio para reducir colisiones
-        return careerPrefix + cycle + coursePrefix + (int) (Math.random() * 100);
+    // ── Find or Create Career ─────────────────────────────────────────────────
+    private CareerEntity findOrCreateCareer(BulkCourseRequestDto.CarreraData data, int rowNum) {
+        String nombre = data.getNombre().trim();
+
+        return careerRepository.findByNameIgnoreCase(nombre).orElseGet(() -> {
+            log.info("Fila {}: Carrera '{}' no existe — creando.", rowNum, nombre);
+
+            CareerEntity career = new CareerEntity();
+            career.setName(nombre);
+            career.setFaculty(data.getFacultad() != null && !data.getFacultad().isBlank()
+                    ? data.getFacultad().trim()
+                    : "Sin Facultad");
+            career.setCycles(data.getCiclos() != null && data.getCiclos() > 0 ? data.getCiclos() : 10);
+            career.setStatus(data.getEstado() != null && !data.getEstado().isBlank()
+                    ? data.getEstado().trim()
+                    : "Activo");
+            career.setLastUpdated(LocalDate.now());
+
+            CareerEntity saved = careerRepository.save(career);
+            log.info("Fila {}: Carrera '{}' creada con ID {}.", rowNum, nombre, saved.getId());
+            return saved;
+        });
     }
 
-    // 🔹 ----- RECORD (YA ESTABA BIEN) ----- 🔹
+    // ── Find or Create Curriculum ─────────────────────────────────────────────
+    private CurriculumEntity findOrCreateCurriculum(BulkCourseRequestDto.MallaData data,
+            CareerEntity career, int rowNum) {
+        String nombre = data.getNombre().trim();
+
+        return curriculumRepository
+                .findByNameIgnoreCaseAndCareerId(nombre, career.getId())
+                .orElseGet(() -> {
+                    log.info("Fila {}: Malla '{}' no existe para carrera '{}' — creando.",
+                            rowNum, nombre, career.getName());
+
+                    CurriculumEntity curriculum = new CurriculumEntity();
+                    curriculum.setName(nombre);
+                    curriculum.setCareer(career);
+                    curriculum.setYear(data.getAño() != null ? data.getAño() : LocalDate.now().getYear());
+                    curriculum.setCourseCount(data.getNumCursos() != null ? data.getNumCursos() : 0);
+                    curriculum.setTotalCredits(data.getCreditos() != null ? data.getCreditos() : 0);
+                    curriculum.setDescription(data.getDescripcion() != null ? data.getDescripcion() : "");
+                    curriculum.setStatus(data.getEstado() != null && !data.getEstado().isBlank()
+                            ? data.getEstado().trim()
+                            : "Activo");
+
+                    CurriculumEntity saved = curriculumRepository.save(curriculum);
+                    log.info("Fila {}: Malla '{}' creada con ID {}.", rowNum, nombre, saved.getId());
+                    return saved;
+                });
+    }
+
+    // ── Find or Create Course ─────────────────────────────────────────────────
+    // Returns true if a new course was created, false if it already existed.
+    private boolean findOrCreateCourse(BulkCourseRequestDto.CursoData data,
+            CareerEntity career, CurriculumEntity curriculum, int rowNum) {
+
+        String nombre = data.getNombre().trim();
+        String codigo = data.getCodigo() != null ? data.getCodigo().trim().toUpperCase() : null;
+
+        // 1. If a code is provided and already exists — skip
+        if (codigo != null && !codigo.isBlank()) {
+            if (courseRepository.findByCodeIgnoreCase(codigo).isPresent()) {
+                log.warn("Fila {}: Curso con código '{}' ya existe — omitiendo.", rowNum, codigo);
+                return false;
+            }
+        }
+
+        // 2. If a course with the same name already exists in this curriculum — skip
+        if (courseRepository.existsByNameIgnoreCaseAndCurriculumId(nombre, curriculum.getId())) {
+            log.warn("Fila {}: Curso '{}' ya existe en la malla '{}' — omitiendo.",
+                    rowNum, nombre, curriculum.getName());
+            return false;
+        }
+
+        // 3. Create the course
+        log.info("Fila {}: Curso '{}' no existe — creando.", rowNum, nombre);
+
+        CourseEntity course = new CourseEntity();
+        course.setName(nombre);
+        course.setCode(resolveCode(codigo, career, nombre, data.getCiclo(), rowNum));
+        course.setCurriculum(curriculum);
+        course.setCareer(career);
+        course.setFaculty(career.getFaculty());
+        course.setYear(data.getAño() != null ? data.getAño()
+                : (curriculum.getYear() != null ? curriculum.getYear() : LocalDate.now().getYear()));
+        course.setStatus(data.getEstado() != null && !data.getEstado().isBlank()
+                ? data.getEstado().trim()
+                : "Activo");
+        course.setSyllabusCount(0);
+        course.setPublicationDate(parseDate(data.getFechaPublicacion()));
+
+        CourseEntity saved = courseRepository.save(course);
+        log.info("Fila {}: Curso '{}' creado con ID {} y código '{}'.",
+                rowNum, nombre, saved.getId(), saved.getCode());
+        return true;
+    }
+
+    // ── Helpers ───────────────────────────────────────────────────────────────
+
+    private String resolveCode(String providedCode, CareerEntity career, String courseName,
+            Integer ciclo, int rowNum) {
+        if (providedCode != null && !providedCode.isBlank()) {
+            return providedCode;
+        }
+        // Auto-generate a code if not provided
+        String careerPrefix = career.getName().replaceAll("[^A-Za-z]", "");
+        careerPrefix = careerPrefix.length() >= 3
+                ? careerPrefix.substring(0, 3).toUpperCase()
+                : careerPrefix.toUpperCase();
+
+        String coursePrefix = courseName.replaceAll("[^A-Za-z]", "");
+        coursePrefix = coursePrefix.length() >= 2
+                ? coursePrefix.substring(0, 2).toUpperCase()
+                : coursePrefix.toUpperCase();
+
+        int cycle = ciclo != null ? ciclo : 1;
+        String candidate = careerPrefix + cycle + "0" + coursePrefix;
+
+        // Ensure uniqueness by appending suffix if necessary
+        int suffix = 1;
+        String code = candidate;
+        while (courseRepository.existsByCode(code)) {
+            code = candidate + suffix++;
+        }
+        log.info("Fila {}: Código auto-generado '{}'.", rowNum, code);
+        return code;
+    }
+
+    private LocalDate parseDate(String dateStr) {
+        if (dateStr == null || dateStr.isBlank()) {
+            return LocalDate.now();
+        }
+        try {
+            return LocalDate.parse(dateStr);
+        } catch (Exception e) {
+            return LocalDate.now();
+        }
+    }
+
+    // ── Result record ─────────────────────────────────────────────────────────
     public record BulkUploadResult(int successCount, List<String> errors) {
     }
 }
