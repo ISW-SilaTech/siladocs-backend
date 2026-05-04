@@ -1,20 +1,8 @@
 package com.siladocs.infrastructure.web;
 
-import com.google.api.client.googleapis.auth.oauth2.GoogleAuthorizationCodeFlow;
-import com.google.api.client.googleapis.auth.oauth2.GoogleClientSecrets;
-import com.google.api.client.googleapis.auth.oauth2.GoogleTokenResponse;
-import com.google.api.client.googleapis.javanet.GoogleNetHttpTransport;
-import com.google.api.client.http.javanet.NetHttpTransport;
-import com.google.api.client.json.JsonFactory;
-import com.google.api.client.json.gson.GsonFactory;
-import com.google.api.services.drive.Drive;
-import com.google.api.services.drive.DriveScopes;
-import com.google.api.services.drive.model.File;
-import com.google.api.services.drive.model.FileList;
-import com.google.auth.http.HttpCredentialsAdapter;
-import com.google.auth.oauth2.AccessToken;
-import com.google.auth.oauth2.GoogleCredentials;
 import com.siladocs.application.service.AzureBlobStorageService;
+import okhttp3.OkHttpClient;
+import okhttp3.Request;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -22,17 +10,16 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import java.io.ByteArrayOutputStream;
-import java.io.StringReader;
-import java.util.*;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
+import java.util.Map;
+import java.util.UUID;
 
 @RestController
 @RequestMapping("/oauth/google")
 public class GoogleDriveOAuthController {
 
     private static final Logger log = LoggerFactory.getLogger(GoogleDriveOAuthController.class);
-    private static final JsonFactory JSON_FACTORY = GsonFactory.getDefaultInstance();
-    private static final String APPLICATION_NAME = "SilaDocs";
 
     @Value("${google.oauth.client-id:}")
     private String clientId;
@@ -40,7 +27,7 @@ public class GoogleDriveOAuthController {
     @Value("${google.oauth.client-secret:}")
     private String clientSecret;
 
-    @Value("${google.oauth.redirect-uri:http://localhost:3000/oauth/google/callback}")
+    @Value("${google.oauth.redirect-uri:https://siladocs-frontend.vercel.app/oauth/google/callback}")
     private String redirectUri;
 
     private final AzureBlobStorageService azureBlobStorageService;
@@ -57,17 +44,17 @@ public class GoogleDriveOAuthController {
                         .body(Map.of("error", "Google OAuth not configured. Set GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET."));
             }
 
-            NetHttpTransport httpTransport = GoogleNetHttpTransport.newTrustedTransport();
-            GoogleClientSecrets clientSecrets = buildClientSecrets();
-            GoogleAuthorizationCodeFlow flow = new GoogleAuthorizationCodeFlow.Builder(
-                    httpTransport, JSON_FACTORY, clientSecrets,
-                    Collections.singletonList(DriveScopes.DRIVE_READONLY))
-                    .setAccessType("offline")
-                    .build();
+            String scope = URLEncoder.encode(
+                    "https://www.googleapis.com/auth/drive.readonly",
+                    StandardCharsets.UTF_8);
 
-            String authUrl = flow.newAuthorizationUrl()
-                    .setRedirectUri(redirectUri)
-                    .build();
+            String authUrl = "https://accounts.google.com/o/oauth2/v2/auth" +
+                    "?client_id=" + URLEncoder.encode(clientId, StandardCharsets.UTF_8) +
+                    "&redirect_uri=" + URLEncoder.encode(redirectUri, StandardCharsets.UTF_8) +
+                    "&response_type=code" +
+                    "&scope=" + scope +
+                    "&access_type=offline" +
+                    "&prompt=consent";
 
             return ResponseEntity.ok(Map.of("authUrl", authUrl));
         } catch (Exception e) {
@@ -85,21 +72,28 @@ public class GoogleDriveOAuthController {
                 return ResponseEntity.badRequest().body(Map.of("error", "Authorization code is required"));
             }
 
-            NetHttpTransport httpTransport = GoogleNetHttpTransport.newTrustedTransport();
-            GoogleClientSecrets clientSecrets = buildClientSecrets();
-            GoogleAuthorizationCodeFlow flow = new GoogleAuthorizationCodeFlow.Builder(
-                    httpTransport, JSON_FACTORY, clientSecrets,
-                    Collections.singletonList(DriveScopes.DRIVE_READONLY))
+            OkHttpClient httpClient = new OkHttpClient();
+            String formBody = "client_id=" + URLEncoder.encode(clientId, StandardCharsets.UTF_8) +
+                    "&client_secret=" + URLEncoder.encode(clientSecret, StandardCharsets.UTF_8) +
+                    "&code=" + URLEncoder.encode(code, StandardCharsets.UTF_8) +
+                    "&redirect_uri=" + URLEncoder.encode(redirectUri, StandardCharsets.UTF_8) +
+                    "&grant_type=authorization_code";
+
+            okhttp3.RequestBody requestBody = okhttp3.RequestBody.create(
+                    formBody, okhttp3.MediaType.parse("application/x-www-form-urlencoded"));
+            Request request = new Request.Builder()
+                    .url("https://oauth2.googleapis.com/token")
+                    .post(requestBody)
                     .build();
 
-            GoogleTokenResponse tokenResponse = flow.newTokenRequest(code)
-                    .setRedirectUri(redirectUri)
-                    .execute();
-
-            return ResponseEntity.ok(Map.of(
-                    "accessToken", tokenResponse.getAccessToken(),
-                    "expiresIn", tokenResponse.getExpiresInSeconds()
-            ));
+            try (okhttp3.Response response = httpClient.newCall(request).execute()) {
+                String responseBodyStr = response.body() != null ? response.body().string() : "{}";
+                if (!response.isSuccessful()) {
+                    return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                            .body(Map.of("error", "Token exchange failed", "details", responseBodyStr));
+                }
+                return ResponseEntity.ok(responseBodyStr);
+            }
         } catch (Exception e) {
             log.error("Error exchanging Google token: {}", e.getMessage());
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
@@ -111,34 +105,33 @@ public class GoogleDriveOAuthController {
     public ResponseEntity<?> listFiles(@RequestBody Map<String, Object> body) {
         try {
             String accessToken = (String) body.get("accessToken");
-            int pageSize = body.containsKey("pageSize") ? (int) body.get("pageSize") : 20;
-
             if (accessToken == null || accessToken.isBlank()) {
                 return ResponseEntity.badRequest().body(Map.of("error", "Access token is required"));
             }
 
-            Drive drive = buildDriveService(accessToken);
-            String query = "mimeType='application/pdf' or mimeType='application/msword' or " +
-                           "mimeType='application/vnd.openxmlformats-officedocument.wordprocessingml.document'";
+            String query = URLEncoder.encode(
+                    "(mimeType='application/pdf' or mimeType='application/msword' or " +
+                    "mimeType='application/vnd.openxmlformats-officedocument.wordprocessingml.document') " +
+                    "and trashed=false",
+                    StandardCharsets.UTF_8);
 
-            FileList result = drive.files().list()
-                    .setQ(query + " and trashed=false")
-                    .setPageSize(pageSize)
-                    .setFields("files(id, name, mimeType, size, createdTime, modifiedTime, webViewLink)")
-                    .execute();
+            OkHttpClient httpClient = new OkHttpClient();
+            Request request = new Request.Builder()
+                    .url("https://www.googleapis.com/drive/v3/files" +
+                         "?q=" + query +
+                         "&fields=files(id,name,mimeType,size,createdTime,modifiedTime,webViewLink)" +
+                         "&pageSize=50")
+                    .header("Authorization", "Bearer " + accessToken)
+                    .build();
 
-            List<Map<String, Object>> files = new ArrayList<>();
-            for (File file : result.getFiles()) {
-                Map<String, Object> fileMap = new HashMap<>();
-                fileMap.put("id", file.getId());
-                fileMap.put("name", file.getName());
-                fileMap.put("mimeType", file.getMimeType());
-                fileMap.put("size", file.getSize());
-                fileMap.put("webViewLink", file.getWebViewLink());
-                files.add(fileMap);
+            try (okhttp3.Response response = httpClient.newCall(request).execute()) {
+                String responseBodyStr = response.body() != null ? response.body().string() : "{}";
+                if (!response.isSuccessful()) {
+                    return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                            .body(Map.of("error", "Failed to list files", "details", responseBodyStr));
+                }
+                return ResponseEntity.ok(responseBodyStr);
             }
-
-            return ResponseEntity.ok(Map.of("files", files));
         } catch (Exception e) {
             log.error("Error listing Google Drive files: {}", e.getMessage());
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
@@ -158,10 +151,20 @@ public class GoogleDriveOAuthController {
                 return ResponseEntity.badRequest().body(Map.of("error", "accessToken and fileId are required"));
             }
 
-            Drive drive = buildDriveService(accessToken);
-            ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
-            drive.files().get(fileId).executeMediaAndDownloadTo(outputStream);
-            byte[] fileBytes = outputStream.toByteArray();
+            OkHttpClient httpClient = new OkHttpClient();
+            Request request = new Request.Builder()
+                    .url("https://www.googleapis.com/drive/v3/files/" + fileId + "?alt=media")
+                    .header("Authorization", "Bearer " + accessToken)
+                    .build();
+
+            byte[] fileBytes;
+            try (okhttp3.Response response = httpClient.newCall(request).execute()) {
+                if (!response.isSuccessful() || response.body() == null) {
+                    return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                            .body(Map.of("error", "Failed to download file from Google Drive"));
+                }
+                fileBytes = response.body().bytes();
+            }
 
             String safeFileName = fileName != null ? fileName : fileId + ".pdf";
             String blobName = syllabusIdStr != null
@@ -182,26 +185,5 @@ public class GoogleDriveOAuthController {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(Map.of("error", "Error importing file: " + e.getMessage()));
         }
-    }
-
-    private GoogleClientSecrets buildClientSecrets() {
-        String secretsJson = String.format(
-                "{\"web\":{\"client_id\":\"%s\",\"client_secret\":\"%s\",\"redirect_uris\":[\"%s\"]," +
-                "\"auth_uri\":\"https://accounts.google.com/o/oauth2/auth\"," +
-                "\"token_uri\":\"https://oauth2.googleapis.com/token\"}}",
-                clientId, clientSecret, redirectUri);
-        try {
-            return GoogleClientSecrets.load(JSON_FACTORY, new StringReader(secretsJson));
-        } catch (Exception e) {
-            throw new RuntimeException("Failed to build client secrets", e);
-        }
-    }
-
-    private Drive buildDriveService(String accessToken) throws Exception {
-        NetHttpTransport httpTransport = GoogleNetHttpTransport.newTrustedTransport();
-        GoogleCredentials credentials = GoogleCredentials.create(new AccessToken(accessToken, null));
-        return new Drive.Builder(httpTransport, JSON_FACTORY, new HttpCredentialsAdapter(credentials))
-                .setApplicationName(APPLICATION_NAME)
-                .build();
     }
 }
