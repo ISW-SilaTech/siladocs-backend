@@ -68,3 +68,11 @@ recaptcha:
   secret-key: ${RECAPTCHA_SECRET_KEY:your-secret-key}
   site-key: ${RECAPTCHA_SITE_KEY:your-site-key}
   score-threshold: 0.5
+
+azure:
+  blob-storage:
+    connection-string: ${AZURE_BLOB_CONNECTION_STRING:DefaultEndpointsProtocol=https;AccountName=siladocsblob;AccountKey=your-account-key;EndpointSuffix=core.windows.net}
+    container-name: ${AZURE_BLOB_CONTAINER_NAME:syllabi}
+    account-name: ${AZURE_BLOB_ACCOUNT_NAME:siladocsblob}
+    account-key: ${AZURE_BLOB_ACCOUNT_KEY:your-account-key}
+    sas-expiry-hours: ${AZURE_BLOB_SAS_EXPIRY_HOURS:24}

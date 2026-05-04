@@ -4,6 +4,7 @@ import com.siladocs.application.dto.SyllabusHistoryResponse;
 import com.siladocs.application.dto.SyllabusResponse;
 import com.siladocs.application.service.BlockchainService;
 import com.siladocs.application.service.SyllabusService;
+import com.siladocs.application.service.AzureBlobStorageService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
@@ -23,10 +24,12 @@ public class SyllabusController {
 
     private final SyllabusService syllabusService;
     private final BlockchainService blockchainService;
+    private final AzureBlobStorageService azureBlobStorageService;
 
-    public SyllabusController(SyllabusService syllabusService, BlockchainService blockchainService) {
+    public SyllabusController(SyllabusService syllabusService, BlockchainService blockchainService, AzureBlobStorageService azureBlobStorageService) {
         this.syllabusService = syllabusService;
         this.blockchainService = blockchainService;
+        this.azureBlobStorageService = azureBlobStorageService;
     }
 
     @PostMapping(value = "/upload", consumes = org.springframework.http.MediaType.MULTIPART_FORM_DATA_VALUE)
@@ -67,7 +70,7 @@ public class SyllabusController {
             // En la nueva arquitectura con Fabric, el historial se mantiene en la BD
             // Retornar lista vacía o información almacenada en PostgreSQL
             List<SyllabusHistoryResponse> history = new ArrayList<>();
-            
+
             if (history.isEmpty()) {
                 log.info("Historial para Sílabo ID {} consultado (vacío en esta versión).", id);
                 return ResponseEntity.ok(history);
@@ -81,6 +84,34 @@ public class SyllabusController {
             log.error("Error FATAL al leer el historial del ID {}: {}", id, e.getMessage(), e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(Map.of("error", "Error al leer la cadena de bloques: " + e.getMessage()));
+        }
+    }
+
+    @GetMapping("/{id}/download-url")
+    public ResponseEntity<?> generateDownloadUrl(@PathVariable("id") Long id) {
+        try {
+            log.info("Generating download URL for syllabus ID: {}", id);
+            String blobName = String.format("syllabi/%d", id);
+            String sasUrl = azureBlobStorageService.generateDownloadSasUrl(blobName);
+            return ResponseEntity.ok(Map.of("downloadUrl", sasUrl));
+        } catch (Exception e) {
+            log.error("Error generating download URL for syllabus {}: {}", id, e.getMessage(), e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of("error", "Error generating download URL: " + e.getMessage()));
+        }
+    }
+
+    @DeleteMapping("/{id}")
+    public ResponseEntity<?> deleteSyllabus(@PathVariable("id") Long id) {
+        try {
+            log.info("Deleting syllabus with ID: {}", id);
+            String blobName = String.format("syllabi/%d", id);
+            azureBlobStorageService.deleteFile(blobName);
+            return ResponseEntity.ok(Map.of("message", "Syllabus deleted successfully"));
+        } catch (Exception e) {
+            log.error("Error deleting syllabus {}: {}", id, e.getMessage(), e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of("error", "Error deleting syllabus: " + e.getMessage()));
         }
     }
 }
