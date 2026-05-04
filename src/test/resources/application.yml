@@ -52,3 +52,24 @@ contact:
 app:
   frontend:
     reset-url: http://localhost:3000/reset-password
+
+azure:
+  blob-storage:
+    connection-string: "DefaultEndpointsProtocol=https;AccountName=devstoreaccount1;AccountKey=Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KgP/CfMnbJ==;EndpointSuffix=core.windows.net"
+    container-name: syllabi-test
+    account-name: devstoreaccount1
+    account-key: "Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KgP/CfMnbJ=="
+    sas-expiry-hours: 1
+
+google:
+  oauth:
+    client-id: test-client-id
+    client-secret: test-client-secret
+    redirect-uri: http://localhost:3000/oauth/google/callback
+
+microsoft:
+  oauth:
+    client-id: test-client-id
+    client-secret: test-client-secret
+    tenant-id: common
+    redirect-uri: http://localhost:3000/oauth/onedrive/callback
