@@ -124,6 +124,24 @@ public class AzureBlobStorageService {
         }
     }
 
+    public String uploadBytes(byte[] fileBytes, String fileName, String blobName, String contentType) throws Exception {
+        try {
+            log.info("Uploading bytes to Azure Blob Storage: {}", blobName);
+            BlobClient blobClient = blobContainerClient.getBlobClient(blobName);
+            try (InputStream inputStream = new java.io.ByteArrayInputStream(fileBytes)) {
+                com.azure.storage.blob.models.BlobHttpHeaders headers = new com.azure.storage.blob.models.BlobHttpHeaders()
+                        .setContentType(contentType != null ? contentType : "application/octet-stream");
+                blobClient.upload(inputStream, fileBytes.length, true);
+                blobClient.setHttpHeaders(headers);
+            }
+            log.info("Bytes uploaded successfully: {}", blobName);
+            return blobName;
+        } catch (Exception e) {
+            log.error("Error uploading bytes: {}", e.getMessage());
+            throw new RuntimeException("Failed to upload bytes to Azure Blob Storage", e);
+        }
+    }
+
     public void deleteDirectory(String directoryPrefix) throws Exception {
         try {
             log.info("Deleting directory from Azure Blob Storage: {}", directoryPrefix);

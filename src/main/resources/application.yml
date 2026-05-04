@@ -76,3 +76,16 @@ azure:
     account-name: ${AZURE_BLOB_ACCOUNT_NAME:siladocsblob}
     account-key: ${AZURE_BLOB_ACCOUNT_KEY:your-account-key}
     sas-expiry-hours: ${AZURE_BLOB_SAS_EXPIRY_HOURS:24}
+
+google:
+  oauth:
+    client-id: ${GOOGLE_CLIENT_ID:}
+    client-secret: ${GOOGLE_CLIENT_SECRET:}
+    redirect-uri: ${GOOGLE_REDIRECT_URI:https://siladocs-frontend.vercel.app/oauth/google/callback}
+
+microsoft:
+  oauth:
+    client-id: ${MICROSOFT_CLIENT_ID:}
+    client-secret: ${MICROSOFT_CLIENT_SECRET:}
+    tenant-id: ${MICROSOFT_TENANT_ID:common}
+    redirect-uri: ${MICROSOFT_REDIRECT_URI:https://siladocs-frontend.vercel.app/oauth/onedrive/callback}
