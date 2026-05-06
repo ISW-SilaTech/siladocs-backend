@@ -56,6 +56,9 @@ public class BlockchainService {
     @Value("${blockchain.fabric.mock.enabled:false}")
     private boolean mockEnabled;
 
+    @Value("${blockchain.fabric.api.url:http://127.0.0.1:8000}")
+    private String fabricApiUrl;
+
     public BlockchainService(@Qualifier("fabricRestClient") RestClient fabricRestClient) {
         this.fabricRestClient = fabricRestClient;
         log.info("BlockchainService inicializado con RestClient para Hyperledger Fabric");
@@ -313,6 +316,6 @@ public class BlockchainService {
      * Obtiene la URL base de Fabric (para logging).
      */
     private String getFabricUrl() {
-        return "http://host.docker.internal:8000";
+        return fabricApiUrl;
     }
 }

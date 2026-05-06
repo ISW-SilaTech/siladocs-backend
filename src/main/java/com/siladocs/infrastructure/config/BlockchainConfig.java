@@ -24,11 +24,6 @@ public class BlockchainConfig {
     @Value("${blockchain.fabric.api.timeout.read:30000}")
     private int readTimeout;
 
-    /**
-     * Bean RestClient optimizado para comunicación con la API de Fabric.
-     *
-     * @return RestClient configurado
-     */
     @Bean("fabricRestClient")
     public RestClient fabricRestClient() {
         return RestClient.builder()
@@ -37,11 +32,6 @@ public class BlockchainConfig {
                 .build();
     }
 
-    /**
-     * Expone la URL de la API de Fabric como bean (útil para logs y debugging).
-     *
-     * @return URL del API de Fabric
-     */
     @Bean("fabricApiUrl")
     public String fabricApiUrl() {
         return fabricApiUrl;
