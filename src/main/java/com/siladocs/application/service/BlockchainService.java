@@ -77,11 +77,9 @@ public class BlockchainService {
             if (body == null) throw new BlockchainException("Respuesta nula de Fabric API");
             if (!body.isSuccessful()) throw new BlockchainException("Fabric rechazó la transacción: " + body.getMessage());
 
-            String txId = body.getTransactionID();
-            if (txId == null || txId.isBlank()) throw new BlockchainException("Fabric no devolvió transaction ID");
-
-            log.info("Fabric OK: txId={}", txId);
-            return txId;
+            // Use docID as the transaction identifier (chaincode returns full JSON in transactionID field)
+            log.info("Fabric OK: docID={}", docID);
+            return docID;
 
         } catch (HttpClientErrorException e) {
             log.error("Error 4xx Fabric: {} - {}", e.getStatusCode(), e.getMessage());
