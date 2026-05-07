@@ -3,7 +3,6 @@ package com.siladocs.infrastructure.persistence.jparepository;
 import com.siladocs.infrastructure.persistence.entity.UserEntity;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository; // 🔹 Importa la anotación
-import org.springframework.data.rest.core.annotation.RepositoryRestResource;
 import java.util.Optional;
 
 @Repository // 🔹 Añade la anotación
