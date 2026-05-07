@@ -38,6 +38,8 @@ public class HealthController {
     public ResponseEntity<Map<String, Object>> fabricHealthCheck() {
         Map<String, Object> response = new HashMap<>();
         response.put("timestamp", Instant.now().toString());
+        response.put("fabricApiUrl", System.getenv("FABRIC_API_URL") != null ?
+            System.getenv("FABRIC_API_URL") : "http://localhost:8000");
 
         if (blockchainService.isFabricApiAvailable()) {
             response.put("status", "UP");
