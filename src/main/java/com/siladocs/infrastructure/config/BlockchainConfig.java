@@ -4,14 +4,10 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.web.client.RestTemplateBuilder;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.web.client.RestClient;
+import org.springframework.web.client.RestTemplate;
 
 import java.time.Duration;
 
-/**
- * Configuración de Blockchain para integración con Hyperledger Fabric.
- * Proporciona un RestClient configurado para comunicarse con la API REST del middleware Python (FastAPI).
- */
 @Configuration
 public class BlockchainConfig {
 
@@ -24,11 +20,11 @@ public class BlockchainConfig {
     @Value("${blockchain.fabric.api.timeout.read:30000}")
     private int readTimeout;
 
-    @Bean("fabricRestClient")
-    public RestClient fabricRestClient() {
-        return RestClient.builder()
-                .baseUrl(fabricApiUrl)
-                .defaultHeader("Content-Type", "application/json")
+    @Bean("fabricRestTemplate")
+    public RestTemplate fabricRestTemplate(RestTemplateBuilder builder) {
+        return builder
+                .connectTimeout(Duration.ofMillis(connectTimeout))
+                .readTimeout(Duration.ofMillis(readTimeout))
                 .build();
     }
 
