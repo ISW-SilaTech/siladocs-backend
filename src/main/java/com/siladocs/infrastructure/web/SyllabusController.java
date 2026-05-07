@@ -37,9 +37,10 @@ public class SyllabusController {
         Authentication authentication,
         @RequestPart("file") MultipartFile file,
         @RequestParam("courseId") Long courseId,
-        @RequestParam(value = "action", defaultValue = "create") String action) {
+        @RequestParam(value = "action", defaultValue = "create") String action,
+        @RequestParam(value = "sessionId", required = false) String sessionId) {
         try {
-            SyllabusResponse response = syllabusService.uploadSyllabus(courseId, file, action);
+            SyllabusResponse response = syllabusService.uploadSyllabus(courseId, file, action, sessionId);
             return ResponseEntity.status(HttpStatus.CREATED).body(response);
         } catch (Exception e) {
             log.error("Error FATAL en la subida del sílabo: {}", e.getMessage(), e);
