@@ -103,7 +103,8 @@ public class SecurityConfig {
                                 "/institutions/**",
                                 "/access-codes/**",
                                 "/institutions",
-                                "/access-codes"
+                                "/access-codes",
+                                "/blockchain/events/**"
                         ).permitAll()
                         .anyRequest().authenticated()
                 )
