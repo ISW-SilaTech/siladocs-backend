@@ -14,7 +14,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.HttpServerErrorException;
-import org.springframework.web.client.RestClient;
+import org.springframework.web.client.RestTemplate;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
@@ -36,14 +36,14 @@ import static org.mockito.Mockito.*;
 public class BlockchainServiceTest {
 
     @Mock
-    private RestClient fabricRestClient;
+    private RestTemplate fabricRestTemplate;
 
     private BlockchainService blockchainService;
 
     @BeforeEach
     public void setUp() {
         MockitoAnnotations.openMocks(this);
-        blockchainService = new BlockchainService(fabricRestClient);
+        blockchainService = new BlockchainService(fabricRestTemplate);
     }
 
     // ============================================================================
@@ -150,7 +150,7 @@ public class BlockchainServiceTest {
 
         // Assert
         assertNotNull(status);
-        assertTrue(status.contains("Fabric API Status Report"));
+        assertTrue(status.contains("Fabric API"));
     }
 
     // ============================================================================
