@@ -64,6 +64,20 @@ public class SyllabusController {
      * Endpoint Corregido: Obtiene el historial COMPLETO de un sílabo iterando sobre los bloques.
      * Esta es la forma más robusta de evitar el error de decodificación de arrays complejos de Web3j.
      */
+    @GetMapping("/{id}")
+    public ResponseEntity<?> getSyllabusById(@PathVariable("id") Long id) {
+        try {
+            SyllabusResponse syllabus = syllabusService.getSyllabusById(id);
+            return ResponseEntity.ok(syllabus);
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("error", e.getMessage()));
+        } catch (Exception e) {
+            log.error("Error fetching syllabus {}: {}", id, e.getMessage(), e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of("error", e.getMessage()));
+        }
+    }
+
     @GetMapping("/{id}/history")
     public ResponseEntity<?> getSyllabusHistory(@PathVariable("id") Long id) {
         log.info("LECTURA DE HISTORIAL solicitada para Syllabus ID: {}", id);

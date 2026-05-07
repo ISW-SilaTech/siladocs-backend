@@ -192,6 +192,7 @@ public class SyllabusService {
         return "Institución desconocida";
     }
 
+    @Transactional(readOnly = true)
     public List<SyllabusResponse> getAllSyllabi() {
         return syllabusRepo.findAll().stream()
                 .map(s -> new SyllabusResponse(s.getId(), s.getCourse().getId(),
@@ -199,5 +200,15 @@ public class SyllabusService {
                         s.getFileUrl(), 0L, s.getCurrentHash(), s.getStatus(),
                         s.getCreatedAt(), s.getFabricTxId()))
                 .collect(Collectors.toList());
+    }
+
+    @Transactional(readOnly = true)
+    public SyllabusResponse getSyllabusById(Long id) {
+        SyllabusEntity s = syllabusRepo.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("Sílabo no encontrado: " + id));
+        return new SyllabusResponse(s.getId(), s.getCourse().getId(),
+                s.getCourse().getName(), s.getCourse().getCode(),
+                s.getFileUrl(), 0L, s.getCurrentHash(), s.getStatus(),
+                s.getCreatedAt(), s.getFabricTxId());
     }
 }
