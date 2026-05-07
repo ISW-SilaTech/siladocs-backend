@@ -106,9 +106,16 @@ public class SyllabusController {
     public ResponseEntity<?> generateDownloadUrl(@PathVariable("id") Long id) {
         try {
             log.info("Generating download URL for syllabus ID: {}", id);
-            String blobName = String.format("syllabi/%d", id);
+            com.siladocs.application.dto.SyllabusResponse syllabus = syllabusService.getSyllabusById(id);
+            String blobName = syllabus.fileUrl();
+            if (blobName == null || blobName.isBlank()) {
+                return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                        .body(Map.of("error", "No file URL stored for syllabus " + id));
+            }
             String sasUrl = azureBlobStorageService.generateDownloadSasUrl(blobName);
             return ResponseEntity.ok(Map.of("downloadUrl", sasUrl));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("error", e.getMessage()));
         } catch (Exception e) {
             log.error("Error generating download URL for syllabus {}: {}", id, e.getMessage(), e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)

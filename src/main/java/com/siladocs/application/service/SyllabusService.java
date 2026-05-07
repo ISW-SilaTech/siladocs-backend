@@ -8,7 +8,6 @@ import com.siladocs.infrastructure.persistence.entity.SyllabusEntity;
 import com.siladocs.infrastructure.persistence.jparepository.CourseJpaRepository;
 import com.siladocs.infrastructure.persistence.jparepository.SyllabusHistoryLogRepository;
 import com.siladocs.infrastructure.persistence.jparepository.SyllabusJpaRepository;
-import com.siladocs.infrastructure.storage.StorageService;
 import org.apache.commons.codec.digest.DigestUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -31,7 +30,7 @@ public class SyllabusService {
     private final SyllabusJpaRepository syllabusRepo;
     private final CourseJpaRepository courseRepo;
     private final BlockchainService blockchainService;
-    private final StorageService storageService;
+    private final AzureBlobStorageService azureBlobStorageService;
     private final SyllabusHistoryLogRepository historyRepo;
     private final UserRepository userRepo;
     private final BlockchainEventEmitterService eventEmitter;
@@ -39,14 +38,14 @@ public class SyllabusService {
     public SyllabusService(SyllabusJpaRepository syllabusRepo,
             CourseJpaRepository courseRepo,
             BlockchainService blockchainService,
-            StorageService storageService,
+            AzureBlobStorageService azureBlobStorageService,
             SyllabusHistoryLogRepository historyRepo,
             UserRepository userRepo,
             BlockchainEventEmitterService eventEmitter) {
         this.syllabusRepo = syllabusRepo;
         this.courseRepo = courseRepo;
         this.blockchainService = blockchainService;
-        this.storageService = storageService;
+        this.azureBlobStorageService = azureBlobStorageService;
         this.historyRepo = historyRepo;
         this.userRepo = userRepo;
         this.eventEmitter = eventEmitter;
@@ -88,8 +87,9 @@ public class SyllabusService {
             }
 
             eventEmitter.emit(sessionId, "storage_uploading", "Subiendo archivo a Azure Blob Storage...", "", 35);
-            String folderPath = String.format("/syllabi/course-%d/", courseId);
-            String fileUrl = uploadToStorage(syllabusFile, fileBytes, folderPath);
+            String originalFilename = sanitizeFileName(syllabusFile.getOriginalFilename());
+            String blobName = String.format("syllabi/course-%d/%s", courseId, originalFilename);
+            String fileUrl = uploadToStorage(syllabusFile, fileBytes, blobName);
             eventEmitter.emit(sessionId, "storage_uploaded", "Archivo almacenado", fileUrl, 50);
 
             SyllabusEntity syllabus;
@@ -165,13 +165,18 @@ public class SyllabusService {
         }
     }
 
-    private String uploadToStorage(MultipartFile file, byte[] fileBytes, String folderPath) {
+    private String uploadToStorage(MultipartFile file, byte[] fileBytes, String blobName) {
         try {
-            return storageService.uploadBytes(fileBytes, file.getOriginalFilename(),
-                    folderPath, file.getContentType());
+            return azureBlobStorageService.uploadBytes(fileBytes, file.getOriginalFilename(),
+                    blobName, file.getContentType());
         } catch (Exception e) {
-            throw new RuntimeException("Error al subir a Storage: " + e.getMessage(), e);
+            throw new RuntimeException("Error al subir a Azure Blob Storage: " + e.getMessage(), e);
         }
+    }
+
+    private String sanitizeFileName(String fileName) {
+        if (fileName == null || fileName.isBlank()) return "syllabus.pdf";
+        return fileName.replaceAll("[^a-zA-Z0-9._\\-]", "_");
     }
 
     private String getAuthenticatedUserEmail() {
