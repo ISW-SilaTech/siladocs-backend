@@ -104,6 +104,7 @@ public class SecurityConfig {
                                 "/access-codes/**",
                                 "/institutions",
                                 "/access-codes",
+                                "/health/**",
                                 "/blockchain/events/**"
                         ).permitAll()
                         .anyRequest().authenticated()
