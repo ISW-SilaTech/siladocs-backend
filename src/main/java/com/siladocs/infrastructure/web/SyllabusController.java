@@ -123,6 +123,37 @@ public class SyllabusController {
         }
     }
 
+    @PatchMapping("/{id}/approve")
+    public ResponseEntity<?> approveSyllabus(@PathVariable("id") Long id, Authentication authentication) {
+        try {
+            String approverEmail = authentication != null ? authentication.getName() : "system";
+            log.info("Aprobando sílabo ID {} por {}", id, approverEmail);
+            SyllabusResponse response = syllabusService.approveSyllabus(id, approverEmail);
+            return ResponseEntity.ok(response);
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("error", e.getMessage()));
+        } catch (Exception e) {
+            log.error("Error aprobando sílabo {}: {}", id, e.getMessage(), e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of("error", "Error al aprobar sílabo: " + e.getMessage()));
+        }
+    }
+
+    @GetMapping("/{id}/verify-integrity")
+    public ResponseEntity<?> verifyIntegrity(@PathVariable("id") Long id) {
+        try {
+            log.info("Verificando integridad de sílabo ID {}", id);
+            Map<String, Object> result = syllabusService.verifyIntegrity(id);
+            return ResponseEntity.ok(result);
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("error", e.getMessage()));
+        } catch (Exception e) {
+            log.error("Error verificando integridad del sílabo {}: {}", id, e.getMessage(), e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of("error", "Error al verificar integridad: " + e.getMessage()));
+        }
+    }
+
     @DeleteMapping("/{id}")
     public ResponseEntity<?> deleteSyllabus(@PathVariable("id") Long id) {
         try {

@@ -20,6 +20,7 @@ import org.springframework.web.multipart.MultipartFile;
 import java.io.IOException;
 import java.time.Instant;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 @Service
@@ -215,5 +216,34 @@ public class SyllabusService {
                 s.getCourse().getName(), s.getCourse().getCode(),
                 s.getFileUrl(), 0L, s.getCurrentHash(), s.getStatus(),
                 s.getCreatedAt(), s.getFabricTxId());
+    }
+
+    @Transactional
+    public SyllabusResponse approveSyllabus(Long id, String approverEmail) {
+        SyllabusEntity s = syllabusRepo.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("Sílabo no encontrado: " + id));
+        s.setStatus("validated");
+        s.setUpdatedAt(Instant.now());
+        SyllabusEntity saved = syllabusRepo.save(s);
+        log.info("Sílabo {} aprobado por {}", id, approverEmail);
+        return new SyllabusResponse(saved.getId(), saved.getCourse().getId(),
+                saved.getCourse().getName(), saved.getCourse().getCode(),
+                saved.getFileUrl(), 0L, saved.getCurrentHash(), saved.getStatus(),
+                saved.getCreatedAt(), saved.getFabricTxId());
+    }
+
+    @Transactional(readOnly = true)
+    public Map<String, Object> verifyIntegrity(Long id) {
+        SyllabusEntity s = syllabusRepo.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("Sílabo no encontrado: " + id));
+        boolean integrityValid = s.getCurrentHash() != null && !s.getCurrentHash().isBlank()
+                && s.getFabricTxId() != null && !s.getFabricTxId().isBlank();
+        return Map.of(
+                "syllabusId", id,
+                "storedHash", s.getCurrentHash() != null ? s.getCurrentHash() : "",
+                "fabricTxId", s.getFabricTxId() != null ? s.getFabricTxId() : "",
+                "integrityValid", integrityValid,
+                "status", s.getStatus()
+        );
     }
 }
