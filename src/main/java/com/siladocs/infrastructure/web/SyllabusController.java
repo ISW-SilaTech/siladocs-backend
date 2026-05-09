@@ -231,4 +231,44 @@ public class SyllabusController {
                     .body(Map.of("error", "Error deleting syllabus: " + e.getMessage()));
         }
     }
+
+    @PostMapping("/{id}/register-version")
+    public ResponseEntity<?> registerVersionRetroactively(
+            @PathVariable("id") Long id,
+            @RequestParam(value = "versionNumber", defaultValue = "1") Integer versionNumber,
+            @RequestParam(value = "fileUrl", required = true) String fileUrl,
+            @RequestParam(value = "fileHash", required = true) String fileHash,
+            @RequestParam(value = "uploadedBy", defaultValue = "Sistema") String uploadedBy,
+            @RequestParam(value = "notes", required = false) String notes,
+            @RequestParam(value = "fabricTxId", required = false) String fabricTxId) {
+        try {
+            log.info("Registering version {} for syllabus {}", versionNumber, id);
+
+            SyllabusResponse syllabus = syllabusService.getSyllabusById(id);
+            com.siladocs.infrastructure.persistence.entity.SyllabusEntity entity =
+                    new com.siladocs.infrastructure.persistence.entity.SyllabusEntity();
+            entity.setId(id);
+
+            versionService.recordVersion(
+                    entity,
+                    versionNumber,
+                    "registered",
+                    uploadedBy,
+                    notes != null ? notes : "Versión registrada retroactivamente",
+                    fileUrl,
+                    fileHash,
+                    fabricTxId
+            );
+
+            return ResponseEntity.ok(Map.of(
+                    "message", "Versión registrada exitosamente",
+                    "syllabusId", id,
+                    "versionNumber", versionNumber
+            ));
+        } catch (Exception e) {
+            log.error("Error registering version for syllabus {}: {}", id, e.getMessage(), e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of("error", "Error registering version: " + e.getMessage()));
+        }
+    }
 }
