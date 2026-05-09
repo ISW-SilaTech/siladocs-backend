@@ -75,7 +75,8 @@ public class ConfigurationController {
                     user.getInstitutionId(),
                     request.getName(),
                     request.getDomain(),
-                    "ACTIVE"
+                    "ACTIVE",
+                    java.time.Instant.now()
             );
 
             Institution updated = configurationService.updateInstitutionConfig(user.getInstitutionId(), institution);
@@ -187,7 +188,7 @@ public class ConfigurationController {
             User user = userRepository.findByEmail(userEmail)
                     .orElseThrow(() -> new IllegalArgumentException("User not found"));
 
-            UserPreferences prefs = configurationService.getUserPreferences(user.getId());
+            UserPreferences prefs = configurationService.getUserPreferences(user.getUserId());
 
             UserPreferencesDto response = new UserPreferencesDto(
                     prefs.getLanguage(),
@@ -221,7 +222,7 @@ public class ConfigurationController {
 
             UserPreferences prefs = new UserPreferences(
                     null,
-                    user.getId(),
+                    user.getUserId(),
                     request.getLanguage(),
                     request.getTheme(),
                     request.getEmailNotifications(),
@@ -233,7 +234,7 @@ public class ConfigurationController {
                     null
             );
 
-            UserPreferences updated = configurationService.updateUserPreferences(user.getId(), prefs);
+            UserPreferences updated = configurationService.updateUserPreferences(user.getUserId(), prefs);
 
             UserPreferencesDto response = new UserPreferencesDto(
                     updated.getLanguage(),
