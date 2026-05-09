@@ -160,16 +160,22 @@ public class SyllabusController {
             log.info("Verificando inmutabilidad del sílabo ID {}", id);
             SyllabusResponse syllabus = syllabusService.getSyllabusById(id);
 
+            // Un sílabo se considera verificado (inmutable) si tiene un fabricTxId válido
             boolean verified = syllabus.fabricTxId() != null && !syllabus.fabricTxId().isEmpty();
+
+            // El número de bloque indica en qué bloque de la blockchain se registró
+            // Por ahora usamos 1 como valor por defecto para sílabos verificados
             int blockNumber = verified ? 1 : 0;
 
-            log.info("Inmutabilidad verificada para sílabo {}: {}", id, verified);
+            log.info("Inmutabilidad verificada para sílabo {}: verified={}, block={}, txId={}",
+                    id, verified, blockNumber, syllabus.fabricTxId());
+
             return ResponseEntity.ok(Map.of(
                     "verified", verified,
-                    "block", blockNumber,
-                    "fabricTxId", syllabus.fabricTxId() != null ? syllabus.fabricTxId() : ""
+                    "block", blockNumber
             ));
         } catch (IllegalArgumentException e) {
+            log.warn("Sílabo no encontrado: {}", id);
             return ResponseEntity.status(HttpStatus.NOT_FOUND)
                     .body(Map.of("error", e.getMessage()));
         } catch (Exception e) {
