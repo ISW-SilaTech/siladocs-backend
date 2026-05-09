@@ -15,4 +15,7 @@ public interface SyllabusJpaRepository extends JpaRepository<SyllabusEntity, Lon
 
     // (Opcional, pero útil) Buscar la última versión de un sílabo por ID de curso
     Optional<SyllabusEntity> findFirstByCourse_IdOrderByCurrentVersionDesc(Long courseId);
+
+    // Contar silabus por curso
+    long countByCourse_Id(Long courseId);
 }

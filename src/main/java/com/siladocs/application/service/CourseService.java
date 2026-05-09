@@ -8,6 +8,7 @@ import com.siladocs.infrastructure.persistence.entity.CourseEntity;
 import com.siladocs.infrastructure.persistence.jparepository.CareerJpaRepository;
 import com.siladocs.infrastructure.persistence.jparepository.CurriculumJpaRepository;
 import com.siladocs.infrastructure.persistence.jparepository.CourseJpaRepository;
+import com.siladocs.infrastructure.persistence.jparepository.SyllabusJpaRepository;
 import jakarta.persistence.EntityNotFoundException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -25,13 +26,16 @@ public class CourseService {
     private final CourseJpaRepository courseRepository;
     private final CurriculumJpaRepository curriculumRepository;
     private final CareerJpaRepository careerRepository;
+    private final SyllabusJpaRepository syllabusRepository;
 
     public CourseService(CourseJpaRepository courseRepository,
             CurriculumJpaRepository curriculumRepository,
-            CareerJpaRepository careerRepository) {
+            CareerJpaRepository careerRepository,
+            SyllabusJpaRepository syllabusRepository) {
         this.courseRepository = courseRepository;
         this.curriculumRepository = curriculumRepository;
         this.careerRepository = careerRepository;
+        this.syllabusRepository = syllabusRepository;
     }
 
     @Transactional
@@ -140,6 +144,9 @@ public class CourseService {
         Long careerId = (entity.getCareer() != null) ? entity.getCareer().getId() : null;
         String careerName = (entity.getCareer() != null) ? entity.getCareer().getName() : null;
 
+        // Contar silabus reales para este curso
+        Integer realSyllabusCount = (int) syllabusRepository.countByCourse_Id(entity.getId());
+
         return new CourseResponse(
                 entity.getId(),
                 curriculumId,
@@ -149,7 +156,7 @@ public class CourseService {
                 entity.getCode(),
                 entity.getName(),
                 entity.getFaculty(),
-                entity.getSyllabusCount(),
+                realSyllabusCount,
                 entity.getYear(),
                 entity.getStatus(),
                 mallaStatus,
