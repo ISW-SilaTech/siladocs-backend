@@ -51,6 +51,7 @@ public class SyllabusServiceTest {
     @Mock private SyllabusHistoryLogRepository historyRepo;
     @Mock private UserRepository userRepo;
     @Mock private BlockchainEventEmitterService eventEmitter;
+    @Mock private SyllabusVersionService versionService;
 
     @InjectMocks
     private SyllabusService syllabusService;

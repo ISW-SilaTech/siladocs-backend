@@ -43,6 +43,17 @@ public class SyllabusService {
             AzureBlobStorageService azureBlobStorageService,
             SyllabusHistoryLogRepository historyRepo,
             UserRepository userRepo,
+            BlockchainEventEmitterService eventEmitter) {
+        this(syllabusRepo, courseRepo, blockchainService, azureBlobStorageService,
+                historyRepo, userRepo, eventEmitter, null);
+    }
+
+    public SyllabusService(SyllabusJpaRepository syllabusRepo,
+            CourseJpaRepository courseRepo,
+            BlockchainService blockchainService,
+            AzureBlobStorageService azureBlobStorageService,
+            SyllabusHistoryLogRepository historyRepo,
+            UserRepository userRepo,
             BlockchainEventEmitterService eventEmitter,
             SyllabusVersionService versionService) {
         this.syllabusRepo = syllabusRepo;
@@ -133,9 +144,11 @@ public class SyllabusService {
             SyllabusEntity saved = syllabusRepo.save(syllabus);
             log.info("GUARDADO: syllabusId={}, txId={}", saved.getId(), txId);
 
-            // Registrar la versión en el historial
-            versionService.recordVersion(saved, saved.getCurrentVersion(), action, userEmail,
-                    "Nueva versión subida", fileUrl, fileHash, txId);
+            // Registrar la versión en el historial (si el servicio está disponible)
+            if (versionService != null) {
+                versionService.recordVersion(saved, saved.getCurrentVersion(), action, userEmail,
+                        "Nueva versión subida", fileUrl, fileHash, txId);
+            }
 
             eventEmitter.emit(sessionId, "completed", "Sílabo registrado en blockchain", txId, 100);
             eventEmitter.complete(sessionId);
