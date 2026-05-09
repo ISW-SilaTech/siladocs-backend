@@ -2,8 +2,10 @@ package com.siladocs.infrastructure.web;
 
 import com.siladocs.application.dto.SyllabusHistoryResponse;
 import com.siladocs.application.dto.SyllabusResponse;
+import com.siladocs.application.dto.SyllabusVersionDto;
 import com.siladocs.application.service.BlockchainService;
 import com.siladocs.application.service.SyllabusService;
+import com.siladocs.application.service.SyllabusVersionService;
 import com.siladocs.application.service.AzureBlobStorageService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -25,11 +27,14 @@ public class SyllabusController {
     private final SyllabusService syllabusService;
     private final BlockchainService blockchainService;
     private final AzureBlobStorageService azureBlobStorageService;
+    private final SyllabusVersionService versionService;
 
-    public SyllabusController(SyllabusService syllabusService, BlockchainService blockchainService, AzureBlobStorageService azureBlobStorageService) {
+    public SyllabusController(SyllabusService syllabusService, BlockchainService blockchainService,
+                            AzureBlobStorageService azureBlobStorageService, SyllabusVersionService versionService) {
         this.syllabusService = syllabusService;
         this.blockchainService = blockchainService;
         this.azureBlobStorageService = azureBlobStorageService;
+        this.versionService = versionService;
     }
 
     @PostMapping(value = "/upload", consumes = org.springframework.http.MediaType.MULTIPART_FORM_DATA_VALUE)
@@ -182,6 +187,34 @@ public class SyllabusController {
             log.error("Error verificando inmutabilidad del sílabo {}: {}", id, e.getMessage(), e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(Map.of("error", "Error verificando inmutabilidad: " + e.getMessage()));
+        }
+    }
+
+    @GetMapping("/{id}/versions")
+    public ResponseEntity<?> getSyllabusVersionHistory(@PathVariable("id") Long id) {
+        try {
+            log.info("Obteniendo historial de versiones del sílabo ID {}", id);
+            List<SyllabusVersionDto> versions = versionService.getSyllabusVersionHistory(id);
+            return ResponseEntity.ok(versions);
+        } catch (Exception e) {
+            log.error("Error obteniendo historial de versiones del sílabo {}: {}", id, e.getMessage(), e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of("error", "Error obteniendo historial de versiones: " + e.getMessage()));
+        }
+    }
+
+    @GetMapping("/{id}/versions/{versionNumber}")
+    public ResponseEntity<?> getSpecificVersion(@PathVariable("id") Long id, @PathVariable("versionNumber") Integer versionNumber) {
+        try {
+            log.info("Obteniendo versión {} del sílabo ID {}", versionNumber, id);
+            SyllabusVersionDto version = versionService.getSpecificVersion(id, versionNumber);
+            return ResponseEntity.ok(version);
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("error", e.getMessage()));
+        } catch (Exception e) {
+            log.error("Error obteniendo versión {} del sílabo {}: {}", versionNumber, id, e.getMessage(), e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of("error", "Error obteniendo versión: " + e.getMessage()));
         }
     }
 
