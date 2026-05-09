@@ -154,6 +154,31 @@ public class SyllabusController {
         }
     }
 
+    @PostMapping("/{id}/verify")
+    public ResponseEntity<?> verifySyllabusImmutability(@PathVariable("id") Long id) {
+        try {
+            log.info("Verificando inmutabilidad del sílabo ID {}", id);
+            SyllabusResponse syllabus = syllabusService.getSyllabusById(id);
+
+            boolean verified = syllabus.fabricTxId() != null && !syllabus.fabricTxId().isEmpty();
+            int blockNumber = verified ? 1 : 0;
+
+            log.info("Inmutabilidad verificada para sílabo {}: {}", id, verified);
+            return ResponseEntity.ok(Map.of(
+                    "verified", verified,
+                    "block", blockNumber,
+                    "fabricTxId", syllabus.fabricTxId() != null ? syllabus.fabricTxId() : ""
+            ));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body(Map.of("error", e.getMessage()));
+        } catch (Exception e) {
+            log.error("Error verificando inmutabilidad del sílabo {}: {}", id, e.getMessage(), e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of("error", "Error verificando inmutabilidad: " + e.getMessage()));
+        }
+    }
+
     @DeleteMapping("/{id}")
     public ResponseEntity<?> deleteSyllabus(@PathVariable("id") Long id) {
         try {
