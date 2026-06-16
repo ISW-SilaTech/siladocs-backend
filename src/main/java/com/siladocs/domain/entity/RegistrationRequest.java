@@ -54,7 +54,12 @@ public class RegistrationRequest {
     }
 
     public enum Status {
-        PENDING, APPROVED, REJECTED
+        PENDING, APPROVED, REJECTED;
+
+        @com.fasterxml.jackson.annotation.JsonValue
+        public String toJson() {
+            return name().toLowerCase();
+        }
     }
 
     public UUID getId() { return id; }
