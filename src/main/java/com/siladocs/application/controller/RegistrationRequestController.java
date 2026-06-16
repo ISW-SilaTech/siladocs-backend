@@ -3,6 +3,7 @@ package com.siladocs.application.controller;
 import com.siladocs.application.dto.CreateRegistrationRequestDto;
 import com.siladocs.application.dto.ReviewRegistrationRequestDto;
 import com.siladocs.application.service.RegistrationRequestService;
+import com.siladocs.domain.entity.AccessCode;
 import com.siladocs.domain.entity.RegistrationRequest;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
@@ -49,5 +50,10 @@ public class RegistrationRequestController {
             @PathVariable UUID id,
             @RequestBody(required = false) ReviewRegistrationRequestDto dto) {
         return ResponseEntity.ok(service.reject(id, dto));
+    }
+
+    @PostMapping("/{id}/send-code")
+    public ResponseEntity<AccessCode> sendCode(@PathVariable UUID id) {
+        return ResponseEntity.ok(service.sendCode(id));
     }
 }

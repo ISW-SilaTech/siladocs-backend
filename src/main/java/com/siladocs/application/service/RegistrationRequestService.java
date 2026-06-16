@@ -104,6 +104,32 @@ public class RegistrationRequestService {
         return req;
     }
 
+    @Transactional
+    public AccessCode sendCode(UUID id) {
+        RegistrationRequest req = findById(id);
+        if (req.getStatus() == RegistrationRequest.Status.REJECTED) {
+            throw new RuntimeException("No se puede enviar código a una solicitud rechazada");
+        }
+
+        // Si estaba pendiente, aprobarla automáticamente
+        if (req.getStatus() == RegistrationRequest.Status.PENDING) {
+            req.setStatus(RegistrationRequest.Status.APPROVED);
+            req.setReviewedAt(Instant.now());
+            repository.save(req);
+        }
+
+        AccessCode code = accessCodeService.generateCode(new GenerateCodeRequest(req.getInstitutionName()));
+
+        try {
+            emailService.sendAccessCodeEmail(req.getEmail(), req.getFullName(), code.getCode(), buildSignUpUrl(code.getCode()));
+        } catch (Exception e) {
+            log.error("Error sending access code email to {}: {}", req.getEmail(), e.getMessage());
+            throw new RuntimeException("Código generado pero falló el envío del email: " + e.getMessage());
+        }
+
+        return code;
+    }
+
     private String buildSignUpUrl(String code) {
         String base = signUpUrl.contains("/authentication/sign-up")
                 ? signUpUrl
