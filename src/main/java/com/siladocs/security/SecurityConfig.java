@@ -104,6 +104,8 @@ public class SecurityConfig {
                                 "/access-codes/**",
                                 "/institutions",
                                 "/access-codes",
+                                "/registration-requests",
+                                "/registration-requests/**",
                                 "/health/**",
                                 "/blockchain/events/**"
                         ).permitAll()

@@ -60,6 +60,17 @@ public class AccessCodeService {
         return accessCode;
     }
 
+    @Transactional(readOnly = true)
+    public java.util.List<AccessCode> listAll() {
+        return repository.findAll();
+    }
+
+    @Transactional(readOnly = true)
+    public AccessCode findById(java.util.UUID id) {
+        return repository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Código no encontrado: " + id));
+    }
+
     @Transactional
     public void markAsUsed(AccessCode accessCode) {
         AccessCode entity = repository.findById(accessCode.getId())
