@@ -123,8 +123,10 @@ public class RegistrationRequestService {
         try {
             emailService.sendAccessCodeEmail(req.getEmail(), req.getFullName(), code.getCode(), buildSignUpUrl(code.getCode()));
         } catch (Exception e) {
-            log.error("Error sending access code email to {}: {}", req.getEmail(), e.getMessage());
-            throw new RuntimeException("Código generado pero falló el envío del email: " + e.getMessage());
+            log.error("Error sending access code email to {}: {}", req.getEmail(), e.getMessage(), e);
+            // No relanzamos: el código ya quedó generado y persistido; el admin puede
+            // reintentar el envío del email sin perder el código. Igual que el patrón
+            // usado en sendUserConfirmationEmail/sendAdminNotificationEmail.
         }
 
         return code;
