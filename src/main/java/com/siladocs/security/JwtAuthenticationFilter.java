@@ -59,22 +59,30 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         // 3. Si el token es válido pero el usuario AÚN NO está autenticado en esta petición
         if (userEmail != null && SecurityContextHolder.getContext().getAuthentication() == null) {
 
-            // 4. Carga los detalles del usuario desde la BD (usando tu AuthService)
-            UserDetails userDetails = this.userDetailsService.loadUserByUsername(userEmail);
+            try {
+                // 4. Carga los detalles del usuario desde la BD (usando tu AuthService)
+                UserDetails userDetails = this.userDetailsService.loadUserByUsername(userEmail);
 
-            // 5. Crea el objeto de autenticación
-            UsernamePasswordAuthenticationToken authToken = new UsernamePasswordAuthenticationToken(
-                    userDetails,
-                    null, // No se necesitan credenciales (password)
-                    userDetails.getAuthorities() // Roles (ej. ROLE_ADMIN)
-            );
+                // 5. Crea el objeto de autenticación
+                UsernamePasswordAuthenticationToken authToken = new UsernamePasswordAuthenticationToken(
+                        userDetails,
+                        null, // No se necesitan credenciales (password)
+                        userDetails.getAuthorities() // Roles (ej. ROLE_ADMIN)
+                );
 
-            authToken.setDetails(
-                    new WebAuthenticationDetailsSource().buildDetails(request)
-            );
+                authToken.setDetails(
+                        new WebAuthenticationDetailsSource().buildDetails(request)
+                );
 
-            // 6. Establece al usuario como AUTENTICADO en el contexto de seguridad
-            SecurityContextHolder.getContext().setAuthentication(authToken);
+                // 6. Establece al usuario como AUTENTICADO en el contexto de seguridad
+                SecurityContextHolder.getContext().setAuthentication(authToken);
+            } catch (Exception e) {
+                // Si el usuario del token ya no existe o falla la carga, seguimos sin
+                // autenticar en vez de propagar la excepción fuera del filtro (lo que
+                // produce un 500 sin pasar por GlobalExceptionHandler en endpoints
+                // públicos como /institutions o /access-codes).
+                SecurityContextHolder.clearContext();
+            }
         }
 
         // 7. Continúa con el resto de los filtros
