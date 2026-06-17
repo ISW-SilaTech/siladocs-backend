@@ -52,6 +52,7 @@ contact:
 app:
   frontend:
     reset-url: http://localhost:3000/reset-password
+    base-url: http://localhost:3000
 
 azure:
   blob-storage:
