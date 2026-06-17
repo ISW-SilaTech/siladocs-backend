@@ -82,9 +82,9 @@ public class PasswordResetController {
                         .body(Map.of("error", "Email, code, and new password are required"));
             }
 
-            if (newPassword.length() < 8) {
+            if (newPassword.length() < 6) {
                 return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                        .body(Map.of("error", "Password must be at least 8 characters"));
+                        .body(Map.of("error", "La contraseña debe tener al menos 6 caracteres"));
             }
 
             log.info("Resetting password for email: {}", email);
