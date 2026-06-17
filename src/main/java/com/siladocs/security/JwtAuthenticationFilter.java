@@ -51,8 +51,12 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             // 2. Validar el token y extraer el email
             userEmail = jwtUtil.extractEmail(jwt);
         } catch (Exception e) {
-            response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
-            response.getWriter().write("Token inválido o expirado");
+            // Token inválido o expirado: seguimos sin autenticar en vez de cortar
+            // la respuesta con 401 aquí. Cortar aquí bloquearía también endpoints
+            // públicos (permitAll) como /institutions o /access-codes cuando el
+            // cliente envía un token viejo/expirado; dejamos que la cadena de
+            // Spring Security decida si el endpoint requiere autenticación.
+            filterChain.doFilter(request, response);
             return;
         }
 
