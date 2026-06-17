@@ -5,10 +5,10 @@ import com.siladocs.domain.repository.UserRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.mail.SimpleMailMessage;
-import org.springframework.mail.javamail.JavaMailSender;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.web.client.RestTemplate;
 
 import java.security.SecureRandom;
 import java.time.LocalDateTime;
@@ -26,10 +26,13 @@ public class PasswordResetService {
     private UserRepository userRepository;
 
     @Autowired
-    private JavaMailSender mailSender;
+    private RestTemplate restTemplate;
 
     @Autowired
     private PasswordEncoder passwordEncoder;
+
+    @Value("${app.frontend.base-url}")
+    private String frontendBaseUrl;
 
     private static class PasswordResetToken {
         String code;
@@ -93,22 +96,20 @@ public class PasswordResetService {
         return String.valueOf(code);
     }
 
+    // Azure App Service bloquea el tráfico SMTP saliente (puertos 25/587) en
+    // los planes que usamos, por lo que enviar el correo directamente con
+    // JavaMailSender falla siempre. En vez de eso delegamos el envío real al
+    // endpoint de Vercel (HTTPS, sin restricción de salida) que ya usa el
+    // mismo SMTP de Gmail de forma confiable para el resto de correos.
     private void sendResetEmail(String email, String userName, String code) {
         try {
-            SimpleMailMessage message = new SimpleMailMessage();
-            message.setTo(email);
-            message.setSubject("Recuperación de Contraseña - SilaDocs");
-            message.setText("Hola " + userName + ",\n\n" +
-                    "Has solicitado recuperar tu contraseña. Usa el siguiente código para completar el proceso:\n\n" +
-                    "Código: " + code + "\n\n" +
-                    "Este código expira en 15 minutos.\n\n" +
-                    "Si no solicitaste este cambio, ignora este email.\n\n" +
-                    "Saludos,\n" +
-                    "El equipo de SilaDocs");
-            message.setFrom("noreply@siladocs.com");
-
-            mailSender.send(message);
-            log.info("Password reset email sent to: {}", email);
+            Map<String, String> payload = Map.of(
+                    "email", email,
+                    "userName", userName,
+                    "code", code
+            );
+            restTemplate.postForEntity(frontendBaseUrl + "/api/send-password-reset-email", payload, String.class);
+            log.info("Password reset email dispatched to: {}", email);
         } catch (Exception e) {
             log.error("Error sending password reset email to {}: {}", email, e.getMessage());
             throw new RuntimeException("Error enviando email de recuperación");
