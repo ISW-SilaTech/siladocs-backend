@@ -58,6 +58,8 @@ public class SecurityConfig {
                 HttpServletResponse response = (HttpServletResponse) res;
 
                 String origin = request.getHeader("Origin");
+
+                // Permitir CORS desde frontend
                 if (origin != null && (
                         origin.equals("http://localhost:3000") ||
                         origin.equals("https://siladocs-frontend.vercel.app") ||
@@ -65,15 +67,18 @@ public class SecurityConfig {
                     response.setHeader("Access-Control-Allow-Origin", origin);
                     response.setHeader("Access-Control-Allow-Credentials", "true");
                     response.setHeader("Access-Control-Allow-Methods", "GET,POST,PUT,DELETE,OPTIONS");
-                    response.setHeader("Access-Control-Allow-Headers", "*");
+                    response.setHeader("Access-Control-Allow-Headers", "Authorization,Content-Type,Accept");
                     response.setHeader("Access-Control-Max-Age", "3600");
+                    response.setHeader("Access-Control-Allow-Private-Network", "true");
                 }
 
+                // Responder a preflight OPTIONS requests
                 if ("OPTIONS".equalsIgnoreCase(request.getMethod())) {
                     response.setStatus(HttpServletResponse.SC_OK);
                     return;
                 }
 
+                // Permitir que la solicitud continúe
                 chain.doFilter(req, res);
             }
         });
@@ -111,6 +116,19 @@ public class SecurityConfig {
                                 "/blockchain/events/**"
                         ).permitAll()
                         .anyRequest().authenticated()
+                )
+
+                .exceptionHandling(exceptions -> exceptions
+                        .authenticationEntryPoint((request, response, authException) -> {
+                            response.setContentType("application/json");
+                            response.setStatus(401);
+                            response.getWriter().write("{\"error\":\"Unauthorized - No valid JWT token provided\",\"message\":\"" + authException.getMessage() + "\"}");
+                        })
+                        .accessDeniedHandler((request, response, accessDeniedException) -> {
+                            response.setContentType("application/json");
+                            response.setStatus(403);
+                            response.getWriter().write("{\"error\":\"Forbidden - Access denied\",\"message\":\"" + accessDeniedException.getMessage() + "\"}");
+                        })
                 )
 
                 .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class)
