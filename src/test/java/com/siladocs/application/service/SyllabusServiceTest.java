@@ -389,7 +389,7 @@ public class SyllabusServiceTest {
     @Test
     @DisplayName("TC-10 - Health check: obtener todos los sílabos retorna lista")
     void tc10_getAllSyllabi_returnsCorrectList() {
-        when(syllabusRepo.findAll()).thenReturn(List.of(mockSyllabus));
+        when(syllabusRepo.findByDeletedFalse()).thenReturn(List.of(mockSyllabus));
 
         List<SyllabusResponse> syllabi = syllabusService.getAllSyllabi();
 
