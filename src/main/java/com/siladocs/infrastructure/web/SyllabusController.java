@@ -65,6 +65,34 @@ public class SyllabusController {
         }
     }
 
+    @GetMapping("/audit/all")
+    public ResponseEntity<?> getAllSyllabiForAudit(Authentication authentication) {
+        // HU0010: Endpoint de auditoría. Retorna TODOS los sílabos incluyendo eliminados.
+        // Restringido a administradores para verificar integridad blockchain de documentos
+        // que ya fueron eliminados lógicamente.
+        if (authentication == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body(Map.of("error", "Autenticación requerida"));
+        }
+
+        boolean isAdmin = authentication.getAuthorities().stream()
+                .anyMatch(a -> "Administrador Académico".equals(a.getAuthority()));
+
+        if (!isAdmin) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                    .body(Map.of("error", "Solo administradores pueden acceder al historial completo de auditoría"));
+        }
+
+        try {
+            List<SyllabusResponse> syllabi = syllabusService.getAllSyllabiForAudit();
+            return ResponseEntity.ok(syllabi);
+        } catch (Exception e) {
+            log.error("Error fetching all syllabi for audit: {}", e.getMessage(), e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of("error", e.getMessage()));
+        }
+    }
+
     /**
      * Endpoint Corregido: Obtiene el historial COMPLETO de un sílabo iterando sobre los bloques.
      * Esta es la forma más robusta de evitar el error de decodificación de arrays complejos de Web3j.

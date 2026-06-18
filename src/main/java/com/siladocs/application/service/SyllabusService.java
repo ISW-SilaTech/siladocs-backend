@@ -230,6 +230,18 @@ public class SyllabusService {
                 .collect(Collectors.toList());
     }
 
+    @Transactional(readOnly = true)
+    public List<SyllabusResponse> getAllSyllabiForAudit() {
+        // Para auditoría: retorna TODOS los sílabos incluyendo eliminados.
+        // Permite verificar integridad blockchain de sílabos ya eliminados.
+        return syllabusRepo.findAll().stream()
+                .map(s -> new SyllabusResponse(s.getId(), s.getCourse().getId(),
+                        s.getCourse().getName(), s.getCourse().getCode(),
+                        s.getFileUrl(), 0L, s.getCurrentHash(), s.getStatus(),
+                        s.getCreatedAt(), s.getFabricTxId()))
+                .collect(Collectors.toList());
+    }
+
     /**
      * Eliminación lógica (HU0010). Mantiene el archivo, el hash y el historial
      * de versiones intactos para que la trazabilidad en blockchain siga siendo
