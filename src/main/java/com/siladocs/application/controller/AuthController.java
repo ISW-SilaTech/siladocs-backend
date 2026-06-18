@@ -222,4 +222,24 @@ public class AuthController {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of("error", e.getMessage()));
         }
     }
+
+    // 🔍 DEBUG ENDPOINT - Verificar que el token se está autenticando
+    @PostMapping("/debug-auth")
+    @Operation(summary = "Debug - Verificar autenticación")
+    public ResponseEntity<?> debugAuth(Authentication authentication) {
+        if (authentication == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body(Map.of(
+                            "error", "Authentication is NULL",
+                            "message", "El token no fue validado correctamente"
+                    ));
+        }
+
+        return ResponseEntity.ok(Map.of(
+                "authenticated", authentication.isAuthenticated(),
+                "principal", authentication.getPrincipal().toString(),
+                "authorities", authentication.getAuthorities().toString(),
+                "message", "Authentication OK"
+        ));
+    }
 }
