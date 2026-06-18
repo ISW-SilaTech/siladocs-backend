@@ -179,12 +179,17 @@ public class AuthService implements UserDetailsService {
             throw new RuntimeException("La institución asociada al código no existe en el sistema.");
         }
 
-        // 3. Crear el nuevo usuario
+        // 3. Crear el nuevo usuario.
+        // El código de acceso es de un solo uso (se marca como usado más abajo),
+        // por lo que quien se registra con él es el administrador principal de la
+        // institución. Debe quedar con el rol "Administrador Académico" para que
+        // los permisos que dependen de ese rol literal (p.ej. HU0010, eliminar
+        // sílabos) funcionen correctamente.
         User newUser = new User(
                 fullName,
                 email,
                 passwordEncoder.encode(rawPassword),
-                "ROLE_USER", // O el rol que desees asignar por defecto
+                "Administrador Académico",
                 institution.getInstitutionId()
         );
 
