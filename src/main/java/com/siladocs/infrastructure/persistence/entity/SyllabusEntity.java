@@ -38,6 +38,19 @@ public class SyllabusEntity {
     @Column(name = "fabric_tx_id")
     private String fabricTxId; // Transaction ID retornado por Hyperledger Fabric
 
+    // --- Eliminación lógica (HU0010) ---
+    // El registro, hash y versiones permanecen intactos en blockchain para
+    // auditoría; solo se oculta de los listados activos.
+
+    @Column(name = "deleted", nullable = false)
+    private boolean deleted = false;
+
+    @Column(name = "deleted_at")
+    private Instant deletedAt;
+
+    @Column(name = "deleted_by")
+    private String deletedBy;
+
     // --- Timestamps ---
 
     @Column(name = "created_at", updatable = false, nullable = false)

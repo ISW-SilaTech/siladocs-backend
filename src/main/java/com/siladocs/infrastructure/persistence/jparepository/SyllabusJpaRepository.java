@@ -18,4 +18,7 @@ public interface SyllabusJpaRepository extends JpaRepository<SyllabusEntity, Lon
 
     // Contar silabus por curso
     long countByCourse_Id(Long courseId);
+
+    // Listados activos (excluye eliminados lógicamente — HU0010)
+    List<SyllabusEntity> findByDeletedFalse();
 }

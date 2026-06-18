@@ -218,17 +218,34 @@ public class SyllabusController {
         }
     }
 
+    // HU0010: eliminación lógica restringida al rol "Administrador Académico".
+    // El archivo, el hash y el historial de versiones se conservan para
+    // mantener la trazabilidad/auditoría en blockchain; solo se oculta del
+    // listado activo de sílabos.
+    private static final String DELETE_SYLLABUS_ROLE = "Administrador Académico";
+
     @DeleteMapping("/{id}")
-    public ResponseEntity<?> deleteSyllabus(@PathVariable("id") Long id) {
+    public ResponseEntity<?> deleteSyllabus(@PathVariable("id") Long id, Authentication authentication) {
+        boolean isAuthorized = authentication != null && authentication.getAuthorities().stream()
+                .anyMatch(a -> DELETE_SYLLABUS_ROLE.equals(a.getAuthority()));
+
+        if (!isAuthorized) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                    .body(Map.of("error", "Solo el rol '" + DELETE_SYLLABUS_ROLE + "' puede eliminar sílabos."));
+        }
+
         try {
-            log.info("Deleting syllabus with ID: {}", id);
-            String blobName = String.format("syllabi/%d", id);
-            azureBlobStorageService.deleteFile(blobName);
-            return ResponseEntity.ok(Map.of("message", "Syllabus deleted successfully"));
+            log.info("Deleting (soft) syllabus with ID: {} by {}", id, authentication.getName());
+            syllabusService.softDeleteSyllabus(id, authentication.getName());
+            return ResponseEntity.ok(Map.of("message", "Sílabo eliminado correctamente"));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("error", e.getMessage()));
+        } catch (IllegalStateException e) {
+            return ResponseEntity.status(HttpStatus.CONFLICT).body(Map.of("error", e.getMessage()));
         } catch (Exception e) {
             log.error("Error deleting syllabus {}: {}", id, e.getMessage(), e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body(Map.of("error", "Error deleting syllabus: " + e.getMessage()));
+                    .body(Map.of("error", "Error al eliminar el sílabo: " + e.getMessage()));
         }
     }
 

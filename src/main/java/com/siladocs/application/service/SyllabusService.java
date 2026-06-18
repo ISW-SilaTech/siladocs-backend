@@ -222,12 +222,31 @@ public class SyllabusService {
 
     @Transactional(readOnly = true)
     public List<SyllabusResponse> getAllSyllabi() {
-        return syllabusRepo.findAll().stream()
+        return syllabusRepo.findByDeletedFalse().stream()
                 .map(s -> new SyllabusResponse(s.getId(), s.getCourse().getId(),
                         s.getCourse().getName(), s.getCourse().getCode(),
                         s.getFileUrl(), 0L, s.getCurrentHash(), s.getStatus(),
                         s.getCreatedAt(), s.getFabricTxId()))
                 .collect(Collectors.toList());
+    }
+
+    /**
+     * Eliminación lógica (HU0010). Mantiene el archivo, el hash y el historial
+     * de versiones intactos para que la trazabilidad en blockchain siga siendo
+     * auditable; solo deja de aparecer en los listados activos.
+     */
+    @Transactional
+    public void softDeleteSyllabus(Long id, String deletedByEmail) {
+        SyllabusEntity s = syllabusRepo.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("Sílabo no encontrado: " + id));
+        if (s.isDeleted()) {
+            throw new IllegalStateException("El sílabo ya fue eliminado anteriormente");
+        }
+        s.setDeleted(true);
+        s.setDeletedAt(Instant.now());
+        s.setDeletedBy(deletedByEmail);
+        syllabusRepo.save(s);
+        log.info("Sílabo {} eliminado (soft delete) por {}", id, deletedByEmail);
     }
 
     @Transactional(readOnly = true)
