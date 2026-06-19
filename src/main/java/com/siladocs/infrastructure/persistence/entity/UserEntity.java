@@ -35,6 +35,9 @@ public class UserEntity {
     @Column(name = "created_at", updatable = false, nullable = false)
     private Instant createdAt = Instant.now();
 
+    @Column(name = "avatar_url", nullable = true)
+    private String avatarUrl;
+
     // Constructor sin id (útil para JPA al crear nuevas entidades)
     public UserEntity(String name, String email, String passwordHash, String role, Long institutionId) {
         this.name = name;

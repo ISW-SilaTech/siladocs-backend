@@ -34,6 +34,9 @@ public class User {
     // ⬇️ REMOVE @Column(...)
     private Instant createdAt = Instant.now();
 
+    // ⬇️ REMOVE @Column(...)
+    private String avatarUrl;
+
     // Constructor sin id para creación más limpia
     public User(String name, String email, String passwordHash, String role, Long institutionId) {
         this.name = name;

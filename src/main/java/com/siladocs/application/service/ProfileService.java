@@ -38,4 +38,19 @@ public class ProfileService {
         // El .save() de JPA detectará que el usuario ya tiene ID y hará un UPDATE
         return userRepository.save(user);
     }
+
+    /**
+     * Actualiza la URL del avatar del usuario.
+     */
+    @Transactional
+    public User updateProfileAvatar(String email, String avatarUrl) {
+        if (avatarUrl == null || avatarUrl.isBlank()) {
+            throw new RuntimeException("La URL del avatar no puede estar vacía.");
+        }
+
+        User user = getProfileByEmail(email);
+        user.setAvatarUrl(avatarUrl);
+
+        return userRepository.save(user);
+    }
 }

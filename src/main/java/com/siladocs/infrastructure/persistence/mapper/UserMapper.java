@@ -18,7 +18,8 @@ public class UserMapper {
                 entity.getPasswordHash(),
                 entity.getRole(),
                 entity.getInstitutionId(),
-                entity.getCreatedAt()
+                entity.getCreatedAt(),
+                entity.getAvatarUrl()
         );
     }
 
@@ -34,7 +35,8 @@ public class UserMapper {
                 domain.getPasswordHash(),
                 domain.getRole(),
                 domain.getInstitutionId(),
-                domain.getCreatedAt()
+                domain.getCreatedAt(),
+                domain.getAvatarUrl()
         );
     }
 }
