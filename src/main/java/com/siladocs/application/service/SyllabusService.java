@@ -222,12 +222,27 @@ public class SyllabusService {
 
     @Transactional(readOnly = true)
     public List<SyllabusResponse> getAllSyllabi() {
-        return syllabusRepo.findByDeletedFalse().stream()
+        log.info("[SYLLABI DEBUG] Iniciando getAllSyllabi()");
+
+        // Obtener TODOS los sílabos sin eliminar
+        List<SyllabusEntity> allSyllabi = syllabusRepo.findByDeletedFalse();
+        log.info("[SYLLABI DEBUG] Total de sílabos en BD (deleted=false): {}", allSyllabi.size());
+
+        // Mapear a respuesta
+        List<SyllabusResponse> result = allSyllabi.stream()
                 .map(s -> new SyllabusResponse(s.getId(), s.getCourse().getId(),
                         s.getCourse().getName(), s.getCourse().getCode(),
                         s.getFileUrl(), 0L, s.getCurrentHash(), s.getStatus(),
                         s.getCreatedAt(), s.getFabricTxId()))
                 .collect(Collectors.toList());
+
+        log.info("[SYLLABI DEBUG] Retornando {} sílabos", result.size());
+        for (int i = 0; i < result.size(); i++) {
+            log.debug("[SYLLABI DEBUG] Syllabus[{}]: id={}, courseId={}, status={}",
+                    i, result.get(i).id(), result.get(i).courseId(), result.get(i).status());
+        }
+
+        return result;
     }
 
     @Transactional(readOnly = true)

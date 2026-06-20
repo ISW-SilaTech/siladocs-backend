@@ -57,11 +57,39 @@ public class SyllabusController {
     @GetMapping
     public ResponseEntity<List<SyllabusResponse>> getAllSyllabi() {
         try {
+            log.info("[SYLLABI API] GET /syllabi endpoint called");
             List<SyllabusResponse> syllabi = syllabusService.getAllSyllabi();
+            log.info("[SYLLABI API] Returning {} syllabi", syllabi.size());
             return ResponseEntity.ok(syllabi);
         } catch (Exception e) {
             log.error("Error fetching all syllabi: {}", e.getMessage(), e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+        }
+    }
+
+    @GetMapping("/debug/count")
+    public ResponseEntity<?> getDebugInfo() {
+        try {
+            // Debug endpoint para investigar el problema de 4 sílabos
+            log.info("[DEBUG] Debug endpoint called");
+
+            // Total incluyendo eliminados
+            long totalWithDeleted = syllabusService.getAllSyllabiForAudit().size();
+            log.info("[DEBUG] Total syllabi (including deleted): {}", totalWithDeleted);
+
+            // Total sin eliminar
+            List<SyllabusResponse> activeOnly = syllabusService.getAllSyllabi();
+            log.info("[DEBUG] Active syllabi (deleted=false): {}", activeOnly.size());
+
+            return ResponseEntity.ok(Map.of(
+                    "totalWithDeleted", totalWithDeleted,
+                    "activeOnly", activeOnly.size(),
+                    "syllabi", activeOnly
+            ));
+        } catch (Exception e) {
+            log.error("[DEBUG] Error in debug endpoint: {}", e.getMessage(), e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of("error", e.getMessage()));
         }
     }
 
