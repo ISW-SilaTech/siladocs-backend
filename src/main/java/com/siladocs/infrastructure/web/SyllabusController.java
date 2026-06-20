@@ -7,6 +7,7 @@ import com.siladocs.application.service.BlockchainService;
 import com.siladocs.application.service.SyllabusService;
 import com.siladocs.application.service.SyllabusVersionService;
 import com.siladocs.application.service.AzureBlobStorageService;
+import com.siladocs.application.service.FileAnalysisService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
@@ -28,13 +29,16 @@ public class SyllabusController {
     private final BlockchainService blockchainService;
     private final AzureBlobStorageService azureBlobStorageService;
     private final SyllabusVersionService versionService;
+    private final FileAnalysisService fileAnalysisService;
 
     public SyllabusController(SyllabusService syllabusService, BlockchainService blockchainService,
-                            AzureBlobStorageService azureBlobStorageService, SyllabusVersionService versionService) {
+                            AzureBlobStorageService azureBlobStorageService, SyllabusVersionService versionService,
+                            FileAnalysisService fileAnalysisService) {
         this.syllabusService = syllabusService;
         this.blockchainService = blockchainService;
         this.azureBlobStorageService = azureBlobStorageService;
         this.versionService = versionService;
+        this.fileAnalysisService = fileAnalysisService;
     }
 
     @PostMapping(value = "/upload", consumes = org.springframework.http.MediaType.MULTIPART_FORM_DATA_VALUE)
@@ -52,6 +56,41 @@ public class SyllabusController {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(Map.of("error", e.getMessage()));
         }
+    }
+
+    @PostMapping(value = "/analyze", consumes = org.springframework.http.MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<?> analyzeSyllabusFile(
+            @RequestPart("file") MultipartFile file,
+            @RequestParam("courseCode") String courseCode) {
+        try {
+            log.info("[FILE ANALYSIS API] Analyzing file: {} for course: {}", file.getOriginalFilename(), courseCode);
+            FileAnalysisService.FileAnalysisResult result = fileAnalysisService.analyzeFile(file, courseCode);
+
+            return ResponseEntity.ok(Map.of(
+                    "courseCode", result.courseCode,
+                    "detectedCode", result.detectedCode,
+                    "confidence", result.confidence,
+                    "allDetectedCodes", result.allDetectedCodes,
+                    "isMatch", result.isMatch,
+                    "message", buildAnalysisMessage(result)
+            ));
+        } catch (Exception e) {
+            log.error("[FILE ANALYSIS API] Error analyzing file: {}", e.getMessage(), e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of("error", "Error al analizar el archivo: " + e.getMessage()));
+        }
+    }
+
+    private String buildAnalysisMessage(FileAnalysisService.FileAnalysisResult result) {
+        if (!result.isMatch) {
+            if (result.detectedCode == null) {
+                return "No se detectó código de curso en el archivo. Verifica que el nombre o contenido contenga el código del curso.";
+            }
+            return String.format("El código detectado (%s) no coincide exactamente con el curso (%s). Confianza: %.0f%%",
+                    result.detectedCode, result.courseCode, result.confidence * 100);
+        }
+        return String.format("✓ Código de curso detectado correctamente: %s (Confianza: %.0f%%)",
+                result.detectedCode, result.confidence * 100);
     }
 
     @GetMapping
