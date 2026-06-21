@@ -124,6 +124,12 @@ public class SyllabusService {
             syllabus.setCurrentVersion(syllabus.getCurrentVersion() + 1);
             syllabus.setStatus(action);
             syllabus.setUpdatedAt(Instant.now());
+            // Re-subir un sílabo a un curso cuyo registro previo fue eliminado
+            // lógicamente (HU0010) debe revertir esa eliminación; de lo contrario
+            // findByDeletedFalse() seguiría excluyéndolo aunque la subida sea exitosa.
+            syllabus.setDeleted(false);
+            syllabus.setDeletedAt(null);
+            syllabus.setDeletedBy(null);
 
             eventEmitter.emit(sessionId, "fabric_connecting", "Conectando con Hyperledger Fabric...", "", 60);
             String txId;
