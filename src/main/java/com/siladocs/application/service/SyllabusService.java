@@ -93,7 +93,11 @@ public class SyllabusService {
             eventEmitter.emit(sessionId, "hash_computed", "Hash calculado", fileHash, 25);
 
             var existingSyllabus = syllabusRepo.findFirstByCourse_IdOrderByCurrentVersionDesc(courseId);
-            if (existingSyllabus.isPresent() && fileHash.equals(existingSyllabus.get().getCurrentHash())) {
+            // Si el registro existente está eliminado lógicamente, no debe activar el
+            // atajo de "sin cambios": hay que continuar el flujo normal para que se
+            // resucite (deleted=false) aunque el contenido del archivo sea idéntico.
+            if (existingSyllabus.isPresent() && !existingSyllabus.get().isDeleted()
+                    && fileHash.equals(existingSyllabus.get().getCurrentHash())) {
                 eventEmitter.emit(sessionId, "completed", "Sin cambios detectados", "", 100);
                 eventEmitter.complete(sessionId);
                 SyllabusEntity existing = existingSyllabus.get();
