@@ -101,6 +101,13 @@ public class SyllabusService {
                 eventEmitter.emit(sessionId, "completed", "Sin cambios detectados", "", 100);
                 eventEmitter.complete(sessionId);
                 SyllabusEntity existing = existingSyllabus.get();
+                // Backfill defensivo: filas creadas antes de que existiera la columna
+                // file_size (o nunca actualizadas por este atajo) se sanean aquí para
+                // que el detalle del sílabo deje de mostrar "Tamaño: —".
+                if (existing.getFileSize() == null || !existing.getFileSize().equals(syllabusFile.getSize())) {
+                    existing.setFileSize(syllabusFile.getSize());
+                    syllabusRepo.save(existing);
+                }
                 return new SyllabusResponse(existing.getId(), existing.getCourse().getId(),
                         existing.getCourse().getName(), existing.getCourse().getCode(),
                         existing.getFileUrl(), syllabusFile.getSize(), existing.getCurrentHash(),
