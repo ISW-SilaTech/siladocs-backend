@@ -124,6 +124,7 @@ public class SyllabusService {
                 syllabus = existingSyllabus.get();
             }
             syllabus.setFileUrl(fileUrl);
+            syllabus.setFileSize(syllabusFile.getSize());
             syllabus.setCurrentHash(fileHash);
             syllabus.setCurrentVersion(syllabus.getCurrentVersion() + 1);
             syllabus.setStatus(action);
@@ -242,7 +243,7 @@ public class SyllabusService {
         List<SyllabusResponse> result = allSyllabi.stream()
                 .map(s -> new SyllabusResponse(s.getId(), s.getCourse().getId(),
                         s.getCourse().getName(), s.getCourse().getCode(),
-                        s.getFileUrl(), 0L, s.getCurrentHash(), s.getStatus(),
+                        s.getFileUrl(), s.getFileSize(), s.getCurrentHash(), s.getStatus(),
                         s.getCreatedAt(), s.getFabricTxId()))
                 .collect(Collectors.toList());
 
@@ -262,7 +263,7 @@ public class SyllabusService {
         return syllabusRepo.findAll().stream()
                 .map(s -> new SyllabusResponse(s.getId(), s.getCourse().getId(),
                         s.getCourse().getName(), s.getCourse().getCode(),
-                        s.getFileUrl(), 0L, s.getCurrentHash(), s.getStatus(),
+                        s.getFileUrl(), s.getFileSize(), s.getCurrentHash(), s.getStatus(),
                         s.getCreatedAt(), s.getFabricTxId()))
                 .collect(Collectors.toList());
     }
@@ -292,7 +293,7 @@ public class SyllabusService {
                 .orElseThrow(() -> new IllegalArgumentException("Sílabo no encontrado: " + id));
         return new SyllabusResponse(s.getId(), s.getCourse().getId(),
                 s.getCourse().getName(), s.getCourse().getCode(),
-                s.getFileUrl(), 0L, s.getCurrentHash(), s.getStatus(),
+                s.getFileUrl(), s.getFileSize(), s.getCurrentHash(), s.getStatus(),
                 s.getCreatedAt(), s.getFabricTxId());
     }
 
@@ -306,7 +307,7 @@ public class SyllabusService {
         log.info("Sílabo {} aprobado por {}", id, approverEmail);
         return new SyllabusResponse(saved.getId(), saved.getCourse().getId(),
                 saved.getCourse().getName(), saved.getCourse().getCode(),
-                saved.getFileUrl(), 0L, saved.getCurrentHash(), saved.getStatus(),
+                saved.getFileUrl(), saved.getFileSize(), saved.getCurrentHash(), saved.getStatus(),
                 saved.getCreatedAt(), saved.getFabricTxId());
     }
 

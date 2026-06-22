@@ -29,6 +29,9 @@ public class SyllabusEntity {
     @Column(name = "file_url", nullable = false)
     private String fileUrl; // URL a Minio
 
+    @Column(name = "file_size")
+    private Long fileSize; // Tamaño en bytes del archivo actual
+
     @Column(name = "current_file_hash", nullable = false, length = 64)
     private String currentHash; // Hash SHA-256 del archivo actual
 
