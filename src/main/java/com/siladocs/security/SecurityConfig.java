@@ -40,7 +40,8 @@ public class SecurityConfig {
     }
 
     @Bean
-    public AuthenticationProvider authenticationProvider(UserDetailsService userDetailsService, PasswordEncoder passwordEncoder) {
+    public AuthenticationProvider authenticationProvider(UserDetailsService userDetailsService,
+            PasswordEncoder passwordEncoder) {
         DaoAuthenticationProvider authProvider = new DaoAuthenticationProvider();
         authProvider.setUserDetailsService(userDetailsService);
         authProvider.setPasswordEncoder(passwordEncoder);
@@ -60,8 +61,7 @@ public class SecurityConfig {
                 String origin = request.getHeader("Origin");
 
                 // Permitir CORS desde frontend
-                if (origin != null && (
-                        origin.equals("http://localhost:3000") ||
+                if (origin != null && (origin.equals("http://localhost:3000") ||
                         origin.equals("https://siladocs-frontend.vercel.app") ||
                         origin.endsWith(".vercel.app"))) {
                     response.setHeader("Access-Control-Allow-Origin", origin);
@@ -113,23 +113,25 @@ public class SecurityConfig {
                                 "/registration-requests",
                                 "/registration-requests/**",
                                 "/health/**",
-                                "/blockchain/events/**"
-                        ).permitAll()
-                        .anyRequest().authenticated()
-                )
+                                "/blockchain/events/**",
+                                "/public/**")
+                        .permitAll()
+                        .anyRequest().authenticated())
 
                 .exceptionHandling(exceptions -> exceptions
                         .authenticationEntryPoint((request, response, authException) -> {
                             response.setContentType("application/json");
                             response.setStatus(401);
-                            response.getWriter().write("{\"error\":\"Unauthorized - No valid JWT token provided\",\"message\":\"" + authException.getMessage() + "\"}");
+                            response.getWriter()
+                                    .write("{\"error\":\"Unauthorized - No valid JWT token provided\",\"message\":\""
+                                            + authException.getMessage() + "\"}");
                         })
                         .accessDeniedHandler((request, response, accessDeniedException) -> {
                             response.setContentType("application/json");
                             response.setStatus(403);
-                            response.getWriter().write("{\"error\":\"Forbidden - Access denied\",\"message\":\"" + accessDeniedException.getMessage() + "\"}");
-                        })
-                )
+                            response.getWriter().write("{\"error\":\"Forbidden - Access denied\",\"message\":\""
+                                    + accessDeniedException.getMessage() + "\"}");
+                        }))
 
                 .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class)
                 .httpBasic(httpBasic -> httpBasic.disable());

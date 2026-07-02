@@ -63,9 +63,13 @@ public class AzureBlobStorageService {
         }
     }
 
-    public String generateDownloadSasUrl(String blobName) throws Exception {
+        public String generateDownloadSasUrl(String blobName) throws Exception {
+        return generateDownloadSasUrl(blobName, sasExpiryHours);
+    }
+
+    public String generateDownloadSasUrl(String blobName, int expiryHours) throws Exception {
         try {
-            log.info("Generating SAS URL for blob: {}", blobName);
+            log.info("Generating SAS URL for blob: {} (expires in {}h)", blobName, expiryHours);
 
             BlobClient blobClient = blobContainerClient.getBlobClient(blobName);
 
@@ -73,7 +77,7 @@ public class AzureBlobStorageService {
                     .setReadPermission(true);
 
             BlobServiceSasSignatureValues sasSignatureValues = new BlobServiceSasSignatureValues(
-                    OffsetDateTime.now().plusHours(sasExpiryHours),
+                    OffsetDateTime.now().plusHours(expiryHours),
                     permission
             );
 
