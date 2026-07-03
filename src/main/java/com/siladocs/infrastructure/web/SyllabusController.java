@@ -18,6 +18,7 @@ import org.slf4j.LoggerFactory;
 import java.util.ArrayList; // 🔹 Importado
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 @RestController
 @RequestMapping("/syllabi")
@@ -41,6 +42,9 @@ public class SyllabusController {
         this.fileAnalysisService = fileAnalysisService;
     }
 
+    // HU: solo Administrador Académico y Docente pueden subir sílabos.
+    private static final Set<String> UPLOAD_SYLLABUS_ROLES = Set.of("Administrador Académico", "Docente");
+
     @PostMapping(value = "/upload", consumes = org.springframework.http.MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<?> uploadSyllabus(
         Authentication authentication,
@@ -48,6 +52,12 @@ public class SyllabusController {
         @RequestParam("courseId") Long courseId,
         @RequestParam(value = "action", defaultValue = "create") String action,
         @RequestParam(value = "sessionId", required = false) String sessionId) {
+        boolean isAuthorized = authentication != null && authentication.getAuthorities().stream()
+                .anyMatch(a -> UPLOAD_SYLLABUS_ROLES.contains(a.getAuthority()));
+        if (!isAuthorized) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                    .body(Map.of("error", "Solo los roles 'Administrador Académico' o 'Docente' pueden subir sílabos."));
+        }
         try {
             SyllabusResponse response = syllabusService.uploadSyllabus(courseId, file, action, sessionId);
             return ResponseEntity.status(HttpStatus.CREATED).body(response);
@@ -223,8 +233,17 @@ public class SyllabusController {
         }
     }
 
+    // HU: solo Administrador Académico puede aprobar (validar) un sílabo.
+    private static final String APPROVE_SYLLABUS_ROLE = "Administrador Académico";
+
     @PatchMapping("/{id}/approve")
     public ResponseEntity<?> approveSyllabus(@PathVariable("id") Long id, Authentication authentication) {
+        boolean isAuthorized = authentication != null && authentication.getAuthorities().stream()
+                .anyMatch(a -> APPROVE_SYLLABUS_ROLE.equals(a.getAuthority()));
+        if (!isAuthorized) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                    .body(Map.of("error", "Solo el rol '" + APPROVE_SYLLABUS_ROLE + "' puede aprobar sílabos."));
+        }
         try {
             String approverEmail = authentication != null ? authentication.getName() : "system";
             log.info("Aprobando sílabo ID {} por {}", id, approverEmail);

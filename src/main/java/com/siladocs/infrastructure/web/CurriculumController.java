@@ -8,6 +8,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -17,15 +18,26 @@ import java.util.List;
 public class CurriculumController {
 
     private static final Logger log = LoggerFactory.getLogger(CurriculumController.class);
+    // HU: solo Administrador Académico puede crear/editar/eliminar mallas.
+    private static final String ADMIN_ROLE = "Administrador Académico";
     private final CurriculumService curriculumService;
 
     public CurriculumController(CurriculumService curriculumService) {
         this.curriculumService = curriculumService;
     }
 
+    private boolean isAdmin(Authentication authentication) {
+        return authentication != null && authentication.getAuthorities().stream()
+                .anyMatch(a -> ADMIN_ROLE.equals(a.getAuthority()));
+    }
+
     // POST /api/curriculums - Create new curriculum
     @PostMapping
-    public ResponseEntity<?> createCurriculum(@RequestBody CurriculumRequest request) {
+    public ResponseEntity<?> createCurriculum(Authentication authentication, @RequestBody CurriculumRequest request) {
+        if (!isAdmin(authentication)) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                    .body("Solo el rol '" + ADMIN_ROLE + "' puede crear mallas curriculares.");
+        }
         try {
             CurriculumResponse response = curriculumService.createCurriculum(request);
             return ResponseEntity.status(HttpStatus.CREATED).body(response);
@@ -69,7 +81,11 @@ public class CurriculumController {
 
     // PUT /api/curriculums/{id} - Update curriculum
     @PutMapping("/{id}")
-    public ResponseEntity<?> updateCurriculum(@PathVariable Long id, @RequestBody CurriculumRequest request) {
+    public ResponseEntity<?> updateCurriculum(Authentication authentication, @PathVariable Long id, @RequestBody CurriculumRequest request) {
+        if (!isAdmin(authentication)) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                    .body("Solo el rol '" + ADMIN_ROLE + "' puede editar mallas curriculares.");
+        }
         try {
             CurriculumResponse response = curriculumService.updateCurriculum(id, request);
             return ResponseEntity.ok(response);
@@ -87,7 +103,11 @@ public class CurriculumController {
 
     // DELETE /api/curriculums/{id} - Delete curriculum
     @DeleteMapping("/{id}")
-    public ResponseEntity<Void> deleteCurriculum(@PathVariable Long id) {
+    public ResponseEntity<?> deleteCurriculum(Authentication authentication, @PathVariable Long id) {
+        if (!isAdmin(authentication)) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                    .body("Solo el rol '" + ADMIN_ROLE + "' puede eliminar mallas curriculares.");
+        }
         try {
             curriculumService.deleteCurriculum(id);
             return ResponseEntity.noContent().build(); // 204 No Content

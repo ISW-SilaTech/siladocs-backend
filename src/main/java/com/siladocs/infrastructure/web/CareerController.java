@@ -8,6 +8,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -17,15 +18,26 @@ import java.util.List;
 public class CareerController {
 
     private static final Logger log = LoggerFactory.getLogger(CareerController.class);
+    // HU: solo Administrador Académico puede crear/editar/eliminar carreras.
+    private static final String ADMIN_ROLE = "Administrador Académico";
     private final CareerService careerService;
 
     public CareerController(CareerService careerService) {
         this.careerService = careerService;
     }
 
+    private boolean isAdmin(Authentication authentication) {
+        return authentication != null && authentication.getAuthorities().stream()
+                .anyMatch(a -> ADMIN_ROLE.equals(a.getAuthority()));
+    }
+
     // POST /api/careers - Crear nueva carrera
     @PostMapping
-    public ResponseEntity<?> createCareer(@RequestBody CareerRequest request) {
+    public ResponseEntity<?> createCareer(Authentication authentication, @RequestBody CareerRequest request) {
+        if (!isAdmin(authentication)) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                    .body("Solo el rol '" + ADMIN_ROLE + "' puede crear carreras.");
+        }
         try {
             CareerResponse response = careerService.createCareer(request);
             return ResponseEntity.status(HttpStatus.CREATED).body(response);
@@ -68,7 +80,11 @@ public class CareerController {
 
     // PUT /api/careers/{id} - Actualizar carrera
     @PutMapping("/{id}")
-    public ResponseEntity<?> updateCareer(@PathVariable Long id, @RequestBody CareerRequest request) {
+    public ResponseEntity<?> updateCareer(Authentication authentication, @PathVariable Long id, @RequestBody CareerRequest request) {
+        if (!isAdmin(authentication)) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                    .body("Solo el rol '" + ADMIN_ROLE + "' puede editar carreras.");
+        }
         try {
             CareerResponse response = careerService.updateCareer(id, request);
             return ResponseEntity.ok(response);
@@ -86,7 +102,11 @@ public class CareerController {
 
     // DELETE /api/careers/{id} - Eliminar carrera
     @DeleteMapping("/{id}")
-    public ResponseEntity<Void> deleteCareer(@PathVariable Long id) {
+    public ResponseEntity<?> deleteCareer(Authentication authentication, @PathVariable Long id) {
+        if (!isAdmin(authentication)) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                    .body("Solo el rol '" + ADMIN_ROLE + "' puede eliminar carreras.");
+        }
         try {
             careerService.deleteCareer(id);
             return ResponseEntity.noContent().build(); // 204 No Content

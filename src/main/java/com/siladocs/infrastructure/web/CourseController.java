@@ -8,6 +8,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -17,15 +18,26 @@ import java.util.List;
 public class CourseController {
 
     private static final Logger log = LoggerFactory.getLogger(CourseController.class);
+    // HU: solo Administrador Académico puede crear/editar/eliminar cursos.
+    private static final String ADMIN_ROLE = "Administrador Académico";
     private final CourseService courseService;
 
     public CourseController(CourseService courseService) {
         this.courseService = courseService;
     }
 
+    private boolean isAdmin(Authentication authentication) {
+        return authentication != null && authentication.getAuthorities().stream()
+                .anyMatch(a -> ADMIN_ROLE.equals(a.getAuthority()));
+    }
+
     // POST /api/courses - Create new course
     @PostMapping
-    public ResponseEntity<?> createCourse(@RequestBody CourseRequest request) {
+    public ResponseEntity<?> createCourse(Authentication authentication, @RequestBody CourseRequest request) {
+        if (!isAdmin(authentication)) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                    .body("Solo el rol '" + ADMIN_ROLE + "' puede crear cursos.");
+        }
         try {
             CourseResponse response = courseService.createCourse(request);
             return ResponseEntity.status(HttpStatus.CREATED).body(response);
@@ -70,7 +82,11 @@ public class CourseController {
 
     // PUT /api/courses/{id} - Update course
     @PutMapping("/{id}")
-    public ResponseEntity<?> updateCourse(@PathVariable Long id, @RequestBody CourseRequest request) {
+    public ResponseEntity<?> updateCourse(Authentication authentication, @PathVariable Long id, @RequestBody CourseRequest request) {
+        if (!isAdmin(authentication)) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                    .body("Solo el rol '" + ADMIN_ROLE + "' puede editar cursos.");
+        }
         try {
             CourseResponse response = courseService.updateCourse(id, request);
             return ResponseEntity.ok(response);
@@ -88,7 +104,11 @@ public class CourseController {
 
     // DELETE /api/courses/{id} - Delete course
     @DeleteMapping("/{id}")
-    public ResponseEntity<Void> deleteCourse(@PathVariable Long id) {
+    public ResponseEntity<?> deleteCourse(Authentication authentication, @PathVariable Long id) {
+        if (!isAdmin(authentication)) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                    .body("Solo el rol '" + ADMIN_ROLE + "' puede eliminar cursos.");
+        }
         try {
             courseService.deleteCourse(id);
             return ResponseEntity.noContent().build(); // 204 No Content
